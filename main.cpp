@@ -11,6 +11,7 @@ using namespace std;
 
 //registers
 class Register {
+protected:
     int8_t value;
 
 public:
@@ -24,6 +25,19 @@ public:
 
     void setRegister(int8_t newValue) {
         value = newValue;
+    }
+};
+
+class GeneralRegister : public Register {
+    int index;
+
+public:
+    GeneralRegister(int idx) {
+        index = idx;
+    }
+
+    int getIndex() {
+        return index;
     }
 };
 
