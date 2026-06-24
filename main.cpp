@@ -18,7 +18,7 @@ public:
         value = 0;
     }
 
-    int8_t getRegister() { //get current value hold by the reg
+    int8_t getRegister() const { //get current value hold by the reg
         return value;
     }
 
@@ -78,8 +78,49 @@ public:
     void setOverflow(bool value) {
         OverflowFlag = value;
     }
+
+    void resetByName(string flagName) {
+        if (flagName == "CF") {
+            CarryFlag = false;
+        } else if (flagName == "ZF") {
+            ZeroFlag = false;
+        } else if (flagName == "UF") {
+            UnderflowFlag = false;
+        } else if (flagName == "OF") {
+            OverflowFlag = false;
+        } else {
+            cerr << "Unknown flag name" << endl;
+        }
+    }
+
+    void updateFromResult(int result) {
+        if (result > 127) {
+            OverflowFlag = true;
+        } else {
+            OverflowFlag = false;
+        }
+
+        if (result < -128) {
+            UnderflowFlag = true;
+        } else {
+            UnderflowFlag = false;
+        }
+
+        if (result == 0) {
+            ZeroFlag = true;
+        } else {
+            ZeroFlag = false;
+        }
+
+        if (result > 255 || result < 0) {
+        CarryFlag = true;
+        } else {
+        CarryFlag = false;
+    }
 };
 
+int result = R[destination] + R[source];
+flags.updateFromResult(result);
 
 //memory
 
