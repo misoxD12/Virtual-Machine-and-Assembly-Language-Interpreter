@@ -331,8 +331,17 @@ public:
         currentSize++;
     }
 
+    // Removes the last element from the vector
+    void pop_back() {
+        if (current_size > 0) {
+            current_size--;
+        } else {
+            throw VMException("VECTOR ERROR: Attempted to pop_back from an empty vector.");
+        }
+    }
+
     // Removes an item and shifts remaining items left to prevent gaps in memory.
-    void remove(int index) {
+    void erase(int index) {
         if (index < 0 || index >= currentSize) {
             throw IndexOutOfBoundsException(index);
         }
@@ -348,6 +357,24 @@ public:
             throw IndexOutOfBoundsException(index);
         }
         return data[index];
+    }
+
+    // Safely gets an item with bounds checking
+    T at(int index) const {
+        if (index < 0 || index >= current_size) {
+            throw IndexOutOfBoundsException(index);
+        }
+        return arr[index];
+    }
+
+    // Overloaded [] operator for standard array-like access (Read/Write)
+    T &operator[](int index) {
+        return arr[index];
+    }
+
+    // Overloaded [] operator for standard array-like access (Read-Only)
+    const T &operator[](int index) const {
+        return arr[index];
     }
 
     int size() const { return currentSize; }
@@ -511,6 +538,8 @@ public:
     }
 
     bool isEmpty() const { return currentSize == 0; }
+
+    bool isFull() const { return currentSize == capacity; }
 };
 
 int main(){
