@@ -2,7 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-
+//bugggggs
 using namespace std;
 
 // exception
@@ -375,7 +375,8 @@ public:
         if (idx >= 0 && idx < 8){
             index = idx;
         } else{
-            throw InvalidRegisterException(idx);
+            cerr << "Invalid register number" << endl;
+            index = -1;
         }
     }
 
@@ -435,7 +436,7 @@ public:
         } else if (flagName == "OF"){
             OverflowFlag = false;
         } else {
-            throw InvalidFlagException(flagName);
+            cerr << "Unknown flag name" << endl;
         }
     }
     //update flag result
@@ -526,8 +527,6 @@ public:
         Operand op;
         int len = text.length();
         
-        if (len == 0) throw MalformedOperandException("Empty Operand");
-
         //check got brackets?
         bool hasBrackets = (text[0] == '[' && text[len - 1] == ']');
 
@@ -562,18 +561,35 @@ public:
 
         op.setType(Immediate);
         int num = 0;
-        int startIndex = (text[0] == '-') ? 1 : 0; // Handle negative numbers
-        if (len == startIndex) throw MalformedOperandException(text); // Catches "-" with no numbers
-        for (int i = startIndex; i < len; i++){
-            if (text[i] < '0' || text[i] > '9') {
-                throw MalformedOperandException(text); // Item #6
-            }
+        for (int i = 0; i < len; i++){
             num = num * 10 + (text[i] - '0');
         }
-        if (startIndex == 1) num = -num; // Apply negative sign
         op.setValue(num);
         return op;
     }
+};
+
+
+class CPU;
+
+//instructions
+class Instructions{
+protected:
+    int lineNum;
+public:
+    Instructions(int line){ //constructor
+        lineNum = line;
+    }
+
+    virtual ~Instructions(){
+    }
+
+    virtual void execute(CPU &cpu) = 0; //for instrcution polymorphsm
+
+    int getLineNum() const{
+        return lineNum;
+    }
+
 };
 
 
@@ -587,9 +603,9 @@ public:
        
     Memory(){
         for (int i = 0; i < 64; ++i) {
-            data[i] = 0; 
+            data[i] = 0;
+        }
     }
-
     
     signed char read(int address) const{
         if (address >= 0 && address < 64) {
@@ -617,10 +633,10 @@ class CPU {
     FlagRegister flags;
     int PC;
     int SI;
-
     Memory memory;
 
-    CustomStack <signed char> stack;
+    Stack <signed char> stack;
+    
 public:
     CPU(){
         for (int i = 0; i < 8; i++){ //constructor to create all 8 registers, giving each one its correct index
@@ -637,18 +653,19 @@ public:
         }
     }
     signed char getRegister(int idx) const{ //read the value stored in register idx (0-7)
-        if (idx >=0 && idx < 8){
+        if (idx >=0 && idx <= 8){
             return registers[idx] -> getRegister();
         } else{
-            throw InvalidRegisterException(idx); // Item #2
+            cerr << "invalid register number" << endl;
+            return 0;
         }
     }
 
     void setRegister(int idx, signed char value){
-        if (idx >=0 && idx < 8){
+        if (idx >=0 && idx <= 8){
             registers[idx] -> setRegister(value);
         } else{
-            throw InvalidRegisterException(idx); // Item #2        
+            cerr << "invalid register number" << endl;
         }
     }
 
@@ -671,25 +688,22 @@ public:
     int getSI() const{ //stack index loh
         return SI;
     }
-    
-    // PLACEHOLDER 
+
     signed char getMemory(int address) const{
-        return memory.read(address);    
+        return memory.readByte(address);
     }
 
-    // PLACEHOLDER 
     void pushValue(signed char value){
         stack.push(value);
         SI = SI + 1;
     }
 
     signed char popValue(){
-        signed char v = stack.pop();
-        SI = SI - 1;
-        return v;
-        
+        signed char v = stack.pop(){
+            SI = SI - 1;
+            return v;
+        }
     }
-        
 };
 
 //instructions
