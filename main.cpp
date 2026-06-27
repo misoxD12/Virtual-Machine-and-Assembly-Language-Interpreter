@@ -5,8 +5,346 @@
 
 using namespace std;
 
+// exception
+class VMException {
+    private:
+        string message;
+    public:
+        VMException(string msg) { message = msg; }
+        virtual ~VMException() {}
+        string getMessage() const { return message; }
+};
+
+// Specific exceptions inheriting from the base class
+class EmptyStackException : public VMException {
+public:
+    EmptyStackException() : VMException("CRITICAL ERROR: Attempted to pop from an empty stack.") {}
+};
+
+class InvalidMemoryException : public VMException {
+public:
+    InvalidMemoryException(int address) 
+        : VMException("MEMORY ERROR: Invalid memory access at address " + to_string(address)) {}
+};
+
+class IndexOutOfBoundsException : public VMException {
+public:
+    IndexOutOfBoundsException(int index) 
+        : VMException("VECTOR ERROR: Index " + to_string(index) + " is out of bounds.") {}
+};
+
+class InvalidRegisterException : public VMException {
+public:
+    InvalidRegisterException(int index) 
+        : VMException("REGISTER ERROR: Register index " + to_string(index) + " is outside valid range (0-7).") {} // Covers Table Items #1 & #2
+};
+
+class InvalidFlagException : public VMException {
+public:
+    InvalidFlagException(string flag) 
+        : VMException("FLAG ERROR: Unknown flag name '" + flag + "'. Valid flags are CF, ZF, UF, OF.") {} // Covers Table Item #3
+};
+
+class MalformedOperandException : public VMException {
+public:
+    MalformedOperandException(string text) 
+        : VMException("SYNTAX ERROR: Malformed or unexpected operand text: '" + text + "'.") {} // Covers Table Item #6
+};
+/*
+class DivideByZeroException : public VMException {
+public:
+    DivideByZeroException() : VMException("MATH ERROR: Division by zero is not allowed.") {} // Covers Item #7
+};
+
+class UnknownInstructionException : public VMException {
+public:
+    UnknownInstructionException(string inst) 
+        : VMException("PARSER ERROR: Unknown or typo'd instruction '" + inst + "'.") {} // Covers Item #9
+};
+
+class MultipleInstructionsException : public VMException {
+public:
+    MultipleInstructionsException(int line) 
+        : VMException("SYNTAX ERROR: Multiple instructions or extra text found on line " + to_string(line) + ".") {} // Covers Item #10
+};
+
+*/
 
 //data structure
+
+//vector
+template <typename T>
+class CustomVector {
+private:
+    T* data;           // Dynamic array to hold the elements.
+    int currentSize;   // Tracks the number of actual items.
+    int capacity;      // Tracks the total allocated memory size.
+
+    // Helper function to double the array size when it gets full.
+    void expand() {
+        int newCapacity = (capacity == 0) ? 2 : capacity * 2;
+        T* newData = new T[newCapacity];
+        for (int i = 0; i < currentSize; i++) {
+            newData[i] = data[i];
+        }
+        delete[] data;
+        data = newData;
+        capacity = newCapacity;
+    }
+
+public:
+    CustomVector() {
+        capacity = 10;
+        currentSize = 0;
+        data = new T[capacity];
+    }
+
+    ~CustomVector() {
+        delete[] data; // Clean up memory to prevent leaks.
+    }
+
+    // Copy Constructor: Performs a deep copy of the underlying array
+    CustomVector(const CustomVector& other) {
+        capacity = other.capacity;
+        currentSize = other.currentSize;
+        data = new T[capacity];
+        for (int i = 0; i < currentSize; i++) {
+            data[i] = other.data[i];
+        }
+    }
+
+    // Assignment Operator: Cleans up existing memory before copying
+    CustomVector& operator=(const CustomVector& other) {
+        if (this != &other) { 
+            delete[] data; 
+            capacity = other.capacity;
+            currentSize = other.currentSize;
+            data = new T[capacity];
+            for (int i = 0; i < currentSize; i++) {
+                data[i] = other.data[i];
+            }
+        }
+        return *this;
+    }
+
+    void push_back(const T& value) {
+        if (currentSize == capacity) {
+            expand(); // Resize if capacity is reached.
+        }
+        data[currentSize] = value;
+        currentSize++;
+    }
+
+    // Removes the last element from the vector
+    void pop_back() {
+        if (currentSize > 0) {
+            currentSize--;
+        } else {
+            throw VMException("VECTOR ERROR: Attempted to pop_back from an empty vector.");
+        }
+    }
+
+    // Removes an item and shifts remaining items left to prevent gaps in memory.
+    void erase(int index) {
+        if (index < 0 || index >= currentSize) {
+            throw IndexOutOfBoundsException(index);
+        }
+        // Shift elements left to fill the gap created by the removed item.
+        for (int i = index; i < currentSize - 1; i++) {
+            data[i] = data[i + 1];
+        }
+        currentSize--;
+    }
+
+    T get(int index) const {
+        if (index < 0 || index >= currentSize) {
+            throw IndexOutOfBoundsException(index);
+        }
+        return data[index];
+    }
+
+    // Safely gets an item with bounds checking
+    T at(int index) const {
+        if (index < 0 || index >= currentSize) {
+            throw IndexOutOfBoundsException(index);
+        }
+        return data[index];
+    }
+
+    // Overloaded [] operator for standard array-like access (Read/Write)
+    T &operator[](int index) {
+        return data[index];
+    }
+
+    // Overloaded [] operator for standard array-like access (Read-Only)
+    const T &operator[](int index) const {
+        return data[index];
+    }
+
+    int size() const { return currentSize; }
+};
+//Queue
+template <typename T>
+class CustomQueue {
+private:
+    T* data;
+    int capacity;
+    int frontIndex; // Points to the first item.
+    int rearIndex;  // Points to the last item.
+    int count;      // Tracks total items currently in the queue.
+
+    // Expands the array and realigns the circular structure into a straight line.
+    void expand() {
+        int oldCapacity = capacity;
+        int newCapacity = (oldCapacity == 0) ? 2 : oldCapacity * 2;
+        T* newData = new T[newCapacity];
+        
+        for (int i = 0; i < count; i++) {
+            // Guarded: Uses oldCapacity to safely unwrap, avoiding modulo by 0
+            int safeIndex = (oldCapacity > 0) ? ((frontIndex + i) % oldCapacity) : 0;
+            newData[i] = data[safeIndex];
+        }
+        
+        delete[] data;
+        data = newData;
+        frontIndex = 0;
+        rearIndex = count - 1;
+        capacity = newCapacity;
+    }
+
+public:
+    CustomQueue() {
+        capacity = 10;
+        data = new T[capacity];
+        frontIndex = 0;
+        rearIndex = -1;
+        count = 0;
+    }
+
+    ~CustomQueue() { delete[] data; }
+
+    // Copy Constructor
+    CustomQueue(const CustomQueue& other) {
+        capacity = other.capacity;
+        frontIndex = other.frontIndex;
+        rearIndex = other.rearIndex;
+        count = other.count;
+        data = new T[capacity];
+        for (int i = 0; i < capacity; i++) {
+            data[i] = other.data[i];
+        }
+    }
+
+    // Assignment Operator
+    CustomQueue& operator=(const CustomQueue& other) {
+        if (this != &other) {
+            delete[] data;
+            capacity = other.capacity;
+            frontIndex = other.frontIndex;
+            rearIndex = other.rearIndex;
+            count = other.count;
+            data = new T[capacity];
+            for (int i = 0; i < capacity; i++) {
+                data[i] = other.data[i];
+            }
+        }
+        return *this;
+    }
+
+    void enqueue(const T& value) {
+        if (count == capacity) {
+            expand();
+        }
+        // Modulo arithmetic wraps the rear index back to 0 if it reaches the end.
+        rearIndex = (rearIndex + 1) % capacity;
+        data[rearIndex] = value;
+        count++;
+    }
+
+    T dequeue() {
+        if (isEmpty()) {
+            throw VMException("QUEUE ERROR: Attempted to dequeue from an empty queue.");
+        }
+        T value = data[frontIndex];
+        // Modulo arithmetic wraps the front index back to 0 if it reaches the end.
+        frontIndex = (frontIndex + 1) % capacity;
+        count--;
+        return value;
+    }
+
+    bool isEmpty() const { return count == 0; }
+};
+//Stack
+template <typename T>
+class CustomStack {
+private:
+    T* data;
+    int capacity;
+    int currentSize;
+
+    void expand() {
+        capacity = (capacity == 0) ? 2 : capacity * 2;
+        T* newData = new T[capacity];
+        for (int i = 0; i < currentSize; i++) {
+            newData[i] = data[i];
+        }
+        delete[] data;
+        data = newData;
+    }
+
+public:
+    CustomStack() {
+        capacity = 8; // Virtual machine stack is 8 elements.
+        currentSize = 0;
+        data = new T[capacity];
+    }
+
+    ~CustomStack() { delete[] data; }
+
+    CustomStack(const CustomStack& other) {
+        capacity = other.capacity;
+        currentSize = other.currentSize;
+        data = new T[capacity];
+        for (int i = 0; i < currentSize; i++) {
+            data[i] = other.data[i];
+        }
+    }
+
+    CustomStack& operator=(const CustomStack& other) {
+        if (this != &other) {
+            delete[] data;
+            capacity = other.capacity;
+            currentSize = other.currentSize;
+            data = new T[capacity];
+            for (int i = 0; i < currentSize; i++) {
+                data[i] = other.data[i];
+            }
+        }
+        return *this;
+    }
+
+    void push(const T& value) {
+        if (currentSize == capacity) {
+            expand();
+        }
+        // Adds item to the top of the stack.
+        data[currentSize] = value;
+        currentSize++;
+    }
+
+    T pop() {
+        if (isEmpty()) {
+            // Assignment constraint: Crash/stop safely on empty pop.
+            throw EmptyStackException(); 
+        }
+        currentSize--;
+        return data[currentSize];
+    }
+
+    bool isEmpty() const { return currentSize == 0; }
+
+    bool isFull() const { return currentSize == capacity; }
+};
 
 //registers
 class Register{
@@ -37,8 +375,7 @@ public:
         if (idx >= 0 && idx < 8){
             index = idx;
         } else{
-            cerr << "Invalid register number" << endl;
-            index = -1;
+            throw InvalidRegisterException(idx);
         }
     }
 
@@ -98,7 +435,7 @@ public:
         } else if (flagName == "OF"){
             OverflowFlag = false;
         } else {
-            cerr << "Unknown flag name" << endl;
+            throw InvalidFlagException(flagName);
         }
     }
     //update flag result
@@ -189,6 +526,8 @@ public:
         Operand op;
         int len = text.length();
         
+        if (len == 0) throw MalformedOperandException("Empty Operand");
+
         //check got brackets?
         bool hasBrackets = (text[0] == '[' && text[len - 1] == ']');
 
@@ -223,9 +562,15 @@ public:
 
         op.setType(Immediate);
         int num = 0;
-        for (int i = 0; i < len; i++){
+        int startIndex = (text[0] == '-') ? 1 : 0; // Handle negative numbers
+        if (len == startIndex) throw MalformedOperandException(text); // Catches "-" with no numbers
+        for (int i = startIndex; i < len; i++){
+            if (text[i] < '0' || text[i] > '9') {
+                throw MalformedOperandException(text); // Item #6
+            }
             num = num * 10 + (text[i] - '0');
         }
+        if (startIndex == 1) num = -num; // Apply negative sign
         op.setValue(num);
         return op;
     }
@@ -233,31 +578,65 @@ public:
 
 
 //memory
+/**
+ * @brief  A memory object that handles storage and addressing logic over an array of bytes.
+ * @details Creates a 64-byte array that acts as the memory space in the virtual machine.
+ */
+class Memory {
+    private:
+        // 1-dimensional array of 64 signed bytes
+        signed char data[64];
 
+    public:
+        /**
+         * @brief  Default constructor. Constructs a new memory object.
+         * @post   A new memory object is initialized with 0 stored inside all 64 addresses.
+         */
+        Memory();
 
-//instructions
-class Instructions{
-protected:
-    int lineNum;
-public:
-    Instructions(int line){ //constructor
-        lineNum = line;
-    }
+        /**
+         * @brief         Retrieves value in the specific address
+         * @param address Index of the 1-dimensional array (0-63)
+         * @throws        VMException if address value is out of bounds.
+         * @return        Signed character stored inside the specific address
+         */
+        signed char read(int address) const;
 
-    virtual ~Instructions(){
-    }
-
-    virtual void execute(CPU &cpu) = 0; //for instrcution polymorphsm
-
-    int getLineNum() const{
-        return lineNum;
-    }
+        /**
+         * @brief         Updates value in the specific address
+         * @param address Index of 1-dimensional array (0-63)
+         * @param value   New value to be stored in the memory address
+         * @throws        VMException if address value is out of bounds.
+         */
+        void write(int address, signed char value);
 
 };
 
-//class OneOperandInstructions : public Instructions { janine
+// ==========================================
+// Method Implementations
+// ==========================================
 
-//class TwoOperandIntsturctions : public Instructions { SIMRAN
+Memory::Memory() {
+    for (int i = 0; i < 64; ++i) {
+        data[i] = 0;
+    }
+}
+
+signed char Memory::read(int address) const {
+    if (address >= 0 && address < 64) {
+        return data[address];
+    } else {
+        throw InvalidMemoryException(address); // Item #8    
+        }
+    }
+
+void Memory::write(int address, signed char value) {
+    if (address >= 0 && address < 64) {
+        this->data[address] = value;
+    } else {
+        throw InvalidMemoryException(address); // Item #8    
+    }
+}
 
 //cpu
 class CPU {
@@ -266,11 +645,9 @@ class CPU {
     int PC;
     int SI;
 
-    //placeholder 
-    //Memory memory;
+    Memory memory;
 
-    //placeholder
-    //Stack <signed char> stack;
+    CustomStack <signed char> stack;
 public:
     CPU(){
         for (int i = 0; i < 8; i++){ //constructor to create all 8 registers, giving each one its correct index
@@ -287,19 +664,18 @@ public:
         }
     }
     signed char getRegister(int idx) const{ //read the value stored in register idx (0-7)
-        if (idx >=0 && idx <= 8){
+        if (idx >=0 && idx < 8){
             return registers[idx] -> getRegister();
         } else{
-            cerr << "invalid register number" << endl;
-            return 0;
+            throw InvalidRegisterException(idx); // Item #2
         }
     }
 
     void setRegister(int idx, signed char value){
-        if (idx >=0 && idx <= 8){
+        if (idx >=0 && idx < 8){
             registers[idx] -> setRegister(value);
         } else{
-            cerr << "invalid register number" << endl;
+            throw InvalidRegisterException(idx); // Item #2        
         }
     }
 
@@ -322,10 +698,10 @@ public:
     int getSI() const{ //stack index loh
         return SI;
     }
-    /*
+    
     // PLACEHOLDER 
     signed char getMemory(int address) const{
-        return memory.readByte(address);
+        return memory.read(address);    
     }
 
     // PLACEHOLDER 
@@ -335,22 +711,99 @@ public:
     }
 
     signed char popValue(){
-        signed char v = stack.pop(){
-            SI = SI - 1;
-            return v;
+        signed char v = stack.pop();
+        SI = SI - 1;
+        return v;
+        
+    }
+        
+};
+
+//instructions
+class Instructions{
+protected:
+    int lineNum;
+public:
+    Instructions(int line){ //constructor
+        lineNum = line;
+    }
+
+    virtual ~Instructions(){
+    }
+
+    virtual void execute(CPU &cpu) = 0; //for instrcution polymorphsm
+
+    int getLineNum() const{
+        return lineNum;
+    }
+
+};
+
+//class OneOperandInstructions : public Instructions { janine
+class OneOperandInstruction : public Instructions {
+private:
+    string opCode;     // E.g., "INC", "PUSH", "RESET"
+    Operand operand;   // Parsed operand details
+    string rawText;    // Raw string (useful for "CF", "ZF" in RESET)
+
+public:
+    OneOperandInstruction(int line, string op, Operand opnd, string raw = "") 
+        : Instructions(line), opCode(op), operand(opnd), rawText(raw) {}
+
+    void execute(CPU &cpu) override {
+        int regIdx = operand.getRegIndex();
+
+        if (opCode == "INC") {
+            signed char val = cpu.getRegister(regIdx);
+            val++;
+            cpu.setRegister(regIdx, val);
+            cpu.getFlags().updateFromResult(val);
+        } 
+        else if (opCode == "DEC") {
+            signed char val = cpu.getRegister(regIdx);
+            val--;
+            cpu.setRegister(regIdx, val);
+            cpu.getFlags().updateFromResult(val);
+        } 
+        else if (opCode == "PUSH") {
+            // Requires CPU CustomStack methods to be uncommented
+            cpu.pushValue(cpu.getRegister(regIdx)); 
+        } 
+        else if (opCode == "POP") {
+            // Requires CPU CustomStack methods to be uncommented
+            cpu.setRegister(regIdx, cpu.popValue());
+        } 
+        else if (opCode == "DISPLAY") {
+            // Cast to int to print the number, not the ASCII symbol
+            cout << static_cast<int>(cpu.getRegister(regIdx)) << endl;
+        } 
+        else if (opCode == "INPUT") {
+            int inputVal;
+            cout << "? ";
+            cin >> inputVal;
+            
+            // Store as signed char, but update flags based on the raw integer input
+            cpu.setRegister(regIdx, static_cast<signed char>(inputVal));
+            cpu.getFlags().updateFromResult(inputVal);
+        } 
+        else if (opCode == "RESET") {
+            // Uses the raw string (e.g., "CF") since it isn't a register or number
+            cpu.getFlags().resetByName(rawText);
+        }
+        else {
+            throw VMException("EXECUTION ERROR: Unknown one-operand instruction '" + opCode + "'.");
         }
     }
-        */
-}；
+};
+//class TwoOperandIntsturctions : public Instructions { SIMRAN
+
+
 
 
 
 //pasrser
 
 //runner
-
-// exception
-
 
 
 
