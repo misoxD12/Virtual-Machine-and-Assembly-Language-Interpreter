@@ -2,7 +2,6 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-//#include <cstdint>
 
 using namespace std;
 
@@ -59,7 +58,7 @@ public:
         CarryFlag = ZeroFlag = UnderflowFlag = OverflowFlag = false;
     }
 
-    ~FlagRegister(){ //destructor, nothing to clean up but added just in case
+    ~FlagRegister(){ //destructor
     }
 
     //getter and setter for flags
@@ -128,8 +127,8 @@ public:
 };
 
 //to be update
-int result = R[destination] + R[source];
-flags.updateFromResult(result);
+//int result = R[destination] + R[source];
+//flags.updateFromResult(result);
 
 /** 
 int result = registers[destination]->get() + registers[source]->get();
@@ -150,6 +149,9 @@ public:
         type = Immediate;
         regIndex = -1;
         value = 0;
+    }
+
+    virtual ~Operand(){   // destructor
     }
 
     //getters
@@ -234,8 +236,32 @@ public:
 
 
 //instructions
+class Instructions{
+protected:
+    int lineNum;
+public:
+    Instructions(int line){ //constructor
+        lineNum = line;
+    }
+
+    virtual ~Instructions(){
+    }
+
+    virtual void execute(CPU &cpu) = 0; //for instrcution polymorphsm
+
+    int getLineNum() const{
+        return lineNum;
+    }
+
+};
+
+//class OneOperandCommand : public Instructions { MEMBER 3
+
+//class TwoOperandCommand : public Instructions { SIMRAN
 
 //cpu
+
+
 
 //pasrser
 
