@@ -668,13 +668,13 @@ public:
     }
 
     virtual ~CPU(){  //destructor to clean up all registers when CPU is destroyed
-        for (int i = 0; i < 8){
+        for (int i = 0; i < 8; i++){
             delete registers[i];
         }
     }
     signed char getRegister(int idx) const{ //read the value stored in register idx (0-7)
         if (idx >=0 && idx <= 8){
-            return registers[idx] -> get();
+            return registers[idx] -> getRegister();
         } else{
             cerr << "invalid register number" << endl;
             return 0;
@@ -682,8 +682,8 @@ public:
     }
 
     void setRegister(int idx, signed char value){
-        if (idx = 0; idx < 8){
-            registers[idx] -> set(value);
+        if (idx >=0 && idx <= 8){
+            registers[idx] -> setRegister(value);
         } else{
             cerr << "invalid register number" << endl;
         }
