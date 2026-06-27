@@ -578,65 +578,38 @@ public:
 
 
 //memory
-/**
- * @brief  A memory object that handles storage and addressing logic over an array of bytes.
- * @details Creates a 64-byte array that acts as the memory space in the virtual machine.
- */
 class Memory {
-    private:
+private:
         // 1-dimensional array of 64 signed bytes
-        signed char data[64];
+    signed char data[64];
 
-    public:
-        /**
-         * @brief  Default constructor. Constructs a new memory object.
-         * @post   A new memory object is initialized with 0 stored inside all 64 addresses.
-         */
-        Memory();
-
-        /**
-         * @brief         Retrieves value in the specific address
-         * @param address Index of the 1-dimensional array (0-63)
-         * @throws        VMException if address value is out of bounds.
-         * @return        Signed character stored inside the specific address
-         */
-        signed char read(int address) const;
-
-        /**
-         * @brief         Updates value in the specific address
-         * @param address Index of 1-dimensional array (0-63)
-         * @param value   New value to be stored in the memory address
-         * @throws        VMException if address value is out of bounds.
-         */
-        void write(int address, signed char value);
-
-};
-
-// ==========================================
-// Method Implementations
-// ==========================================
-
-Memory::Memory() {
-    for (int i = 0; i < 64; ++i) {
-        data[i] = 0;
+public:
+       
+    Memory(){
+        for (int i = 0; i < 64; ++i) {
+            data[i] = 0; 
     }
-}
 
-signed char Memory::read(int address) const {
-    if (address >= 0 && address < 64) {
-        return data[address];
-    } else {
-        throw InvalidMemoryException(address); // Item #8    
+    
+    signed char read(int address) const{
+        if (address >= 0 && address < 64) {
+            return data[address];
+        } else {
+            throw InvalidMemoryException(address); // Item #8    
         }
     }
 
-void Memory::write(int address, signed char value) {
-    if (address >= 0 && address < 64) {
-        this->data[address] = value;
-    } else {
-        throw InvalidMemoryException(address); // Item #8    
+       
+    void write(int address, signed char value){
+        if (address >= 0 && address < 64) {
+            this->data[address] = value;
+        } else {
+            throw InvalidMemoryException(address); // Item #8    
+        }
     }
-}
+
+};
+
 
 //cpu
 class CPU {
@@ -806,9 +779,3 @@ public:
 //runner
 
 
-
-int main(){
-    cout<<"";
-    return 0;
-    
-}
