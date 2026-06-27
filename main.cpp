@@ -255,11 +255,93 @@ public:
 
 };
 
-//class OneOperandCommand : public Instructions { MEMBER 3
+//class OneOperandInstructions : public Instructions { janine
 
-//class TwoOperandCommand : public Instructions { SIMRAN
+//class TwoOperandIntsturctions : public Instructions { SIMRAN
 
 //cpu
+class CPU {
+    GeneralRegister* registers[8]; //8 pointers r0-r7
+    FlagRegister flags;
+    int PC;
+    int SI;
+
+    //placeholder 
+    //Memory memory;
+
+    //placeholder
+    //Stack <signed char> stack;
+public:
+    CPU(){
+        for (int i = 0; i < 8; i++){ //constructor to create all 8 registers, giving each one its correct index
+            registers[i] = new GeneralRegister(i);
+        }
+
+        PC = 0;
+        SI = 0;
+    }
+
+    virtual ~CPU(){  //destructor to clean up all registers when CPU is destroyed
+        for (int i = 0; i < 8){
+            delete registers[i];
+        }
+    }
+    signed char getRegister(int idx) const{ //read the value stored in register idx (0-7)
+        if (idx >=0 && idx <= 8){
+            return registers[idx] -> get();
+        } else{
+            cerr << "invalid register number" << endl;
+            return 0;
+        }
+    }
+
+    void setRegister(int idx, signed char value){
+        if (int i = 0; i < 8){
+            registers[idx] -> set(value);
+        } else{
+            cerr << "invalid register number" << endl;
+        }
+    }
+
+    FlagRegister &getFlags(){ //access to the FlagRegister so can check/update flags
+        return flags;
+    }
+
+    int getPC() const{ //program counter loh
+        return PC;
+    }
+
+    void setPC(int value){
+        PC = value;
+    }
+
+    void incrementPC(){
+        PC = PC + 1;
+    }
+
+    int getSI() const{ //stack index loh
+        return SI;
+    }
+    /*
+    // PLACEHOLDER 
+    signed char getMemory(int address) const{
+        return memory.readByte(address);
+    }
+
+    // PLACEHOLDER 
+    void pushValue(signed char value){
+        stack.push(value);
+        SI = SI + 1;
+    }
+
+    signed char popValue(){
+        signed char v = stack.pop(){
+            SI = SI - 1;
+            return v;
+        }
+    }
+        */
+}；
 
 
 
