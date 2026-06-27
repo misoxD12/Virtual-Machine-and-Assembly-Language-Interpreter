@@ -782,9 +782,104 @@ public:
         }
     }
 };
-//class TwoOperandIntsturctions : public Instructions { SIMRAN
+
+class TwoOperandInstruction : public Instructions {
+protected:
+    Operand op1, op2;   // use Operand, already correctly parsed - not raw strings
+
+public:
+    TwoOperandInstruction(int line, Operand o1, Operand o2) : Instructions(line){
+        op1 = o1;
+        op2 = o2;
+    }
+
+    virtual ~TwoOperandInstruction(){
+    }
+
+};
 
 
+
+
+class ShiftInstruction : public TwoOperandInstruction {
+protected:
+    int destReg;
+    int count;
+
+    unsigned char convertUnsigned(CPU &cpu){
+        return static_cast<unsigned char>(cpu.getRegister(destReg));
+    }
+
+    void storeResult(CPU &cpu, unsigned char val){
+        cpu.setRegister(destReg, static_cast<signed char>(val));
+    }
+public:
+    ShiftInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2) {
+        destReg = o1.getRegIndex();
+        count = o2.getValue();
+    }
+
+    virtual ~ShiftInstruction(){
+    }
+};
+
+class ROLCommand : public ShiftInstruction {
+public:
+    ROLCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
+    }
+
+    void execute(CPU &cpu) override {
+        unsigned char val = convertUnsigned(cpu);
+        int shiftCount   = count % 8;
+        val = (val << shiftCount) | (val >> (8 - shiftCount));
+        storeResult(cpu, val);
+    }
+};
+
+class RORCommand : public ShiftInstruction {
+public:
+    RORCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
+    }
+
+    void execute(CPU &cpu) override {
+        unsigned char val = convertUnsigned(cpu);
+        int shiftCount = count % 8;
+        val = (val >> shiftCount) | (val << (8 - shiftCount));
+        storeResult(cpu, val);
+    }
+};
+
+class SHLCommand : public ShiftInstruction {
+public:
+    SHLCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
+    }
+
+    void execute(CPU &cpu) override {
+        unsigned char val = convertUnsigned(cpu);
+        if (count >= 8) {
+            val = 0;
+        } else {
+            val = val << count;
+        }
+        storeResult(cpu, val);
+    }
+};
+
+class SHRCommand : public ShiftInstruction {
+public:
+    SHRCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
+    }
+
+    void execute(CPU &cpu) override {
+        unsigned char val = convertUnsigned(cpu);
+        if (count >= 8) {
+            val = 0;
+        } else {
+            val = val >> count;
+        }
+        storeResult(cpu, val);
+    }
+};
 
 
 
