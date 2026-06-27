@@ -572,26 +572,6 @@ public:
 
 class CPU;
 
-//instructions
-class Instructions{
-protected:
-    int lineNum;
-public:
-    Instructions(int line){ //constructor
-        lineNum = line;
-    }
-
-    virtual ~Instructions(){
-    }
-
-    virtual void execute(CPU &cpu) = 0; //for instrcution polymorphsm
-
-    int getLineNum() const{
-        return lineNum;
-    }
-
-};
-
 
 //memory
 class Memory {
@@ -607,7 +587,9 @@ public:
         }
     }
     
-    signed char read(int address) const{
+    virtual ~Memory() {}
+
+    signed char readMemory(int address) const{
         if (address >= 0 && address < 64) {
             return data[address];
         } else {
@@ -616,7 +598,7 @@ public:
     }
 
        
-    void write(int address, signed char value){
+    void writeMemory(int address, signed char value){
         if (address >= 0 && address < 64) {
             this->data[address] = value;
         } else {
@@ -635,7 +617,7 @@ class CPU {
     int SI;
     Memory memory;
 
-    Stack <signed char> stack;
+    CustomStack <signed char> stack;
     
 public:
     CPU(){
@@ -690,7 +672,7 @@ public:
     }
 
     signed char getMemory(int address) const{
-        return memory.readByte(address);
+        return memory.readMemory(address);
     }
 
     void pushValue(signed char value){
@@ -699,12 +681,14 @@ public:
     }
 
     signed char popValue(){
-        signed char v = stack.pop(){
-            SI = SI - 1;
-            return v;
-        }
+        signed char v = stack.pop();
+        SI = SI - 1;
+        return v;
     }
 };
+
+
+
 
 //instructions
 class Instructions{
@@ -714,10 +698,7 @@ public:
     Instructions(int line){ //constructor
         lineNum = line;
     }
-
-    virtual ~Instructions(){
-    }
-
+    virtual ~Instructions(){}
     virtual void execute(CPU &cpu) = 0; //for instrcution polymorphsm
 
     int getLineNum() const{
@@ -727,58 +708,54 @@ public:
 };
 
 //class OneOperandInstructions : public Instructions { janine
-class OneOperandInstruction : public Instructions {
+// Logic for Math-based instructions (INC, DEC)
+class MathInstruction : public Instructions {
 private:
-    string opCode;     // E.g., "INC", "PUSH", "RESET"
-    Operand operand;   // Parsed operand details
-    string rawText;    // Raw string (useful for "CF", "ZF" in RESET)
-
+    string opCode;
+    Operand op;
 public:
-    OneOperandInstruction(int line, string op, Operand opnd, string raw = "") 
-        : Instructions(line), opCode(op), operand(opnd), rawText(raw) {}
+    MathInstruction(int line, string op, Operand o) : Instructions(line), opCode(op), op(o) {}
 
     void execute(CPU &cpu) override {
-        int regIdx = operand.getRegIndex();
+        int val = cpu.getRegister(op.getRegIndex());
+        if (opCode == "INC") val++;
+        else val--;
+        
+        cpu.getFlags().updateFromResult(val);
+        cpu.setRegister(op.getRegIndex(), static_cast<signed char>(val));
+    }
+};
 
-        if (opCode == "INC") {
-            signed char val = cpu.getRegister(regIdx);
-            val++;
-            cpu.setRegister(regIdx, val);
-            cpu.getFlags().updateFromResult(val);
-        } 
-        else if (opCode == "DEC") {
-            signed char val = cpu.getRegister(regIdx);
-            val--;
-            cpu.setRegister(regIdx, val);
-            cpu.getFlags().updateFromResult(val);
-        } 
-        else if (opCode == "PUSH") {
-            // Requires CPU CustomStack methods to be uncommented
-            cpu.pushValue(cpu.getRegister(regIdx)); 
-        } 
-        else if (opCode == "POP") {
-            // Requires CPU CustomStack methods to be uncommented
-            cpu.setRegister(regIdx, cpu.popValue());
-        } 
-        else if (opCode == "DISPLAY") {
-            // Cast to int to print the number, not the ASCII symbol
-            cout << static_cast<int>(cpu.getRegister(regIdx)) << endl;
-        } 
-        else if (opCode == "INPUT") {
+// Logic for Stack-based instructions (PUSH, POP)
+class StackInstruction : public Instructions {
+private:
+    string opCode;
+    Operand op;
+public:
+    StackInstruction(int line, string op, Operand o) : Instructions(line), opCode(op), op(o) {}
+
+    void execute(CPU &cpu) override {
+        if (opCode == "PUSH") cpu.pushValue(cpu.getRegister(op.getRegIndex()));
+        else cpu.setRegister(op.getRegIndex(), cpu.popValue());
+    }
+};
+
+// Logic for I/O based instructions (INPUT, DISPLAY)
+class IOInstruction : public Instructions {
+private:
+    string opCode;
+    Operand op;
+public:
+    IOInstruction(int line, string op, Operand o) : Instructions(line), opCode(op), op(o) {}
+
+    void execute(CPU &cpu) override {
+        if (opCode == "DISPLAY") cout << static_cast<int>(cpu.getRegister(op.getRegIndex())) << endl;
+        else {
             int inputVal;
             cout << "? ";
             cin >> inputVal;
-            
-            // Store as signed char, but update flags based on the raw integer input
-            cpu.setRegister(regIdx, static_cast<signed char>(inputVal));
+            cpu.setRegister(op.getRegIndex(), static_cast<signed char>(inputVal));
             cpu.getFlags().updateFromResult(inputVal);
-        } 
-        else if (opCode == "RESET") {
-            // Uses the raw string (e.g., "CF") since it isn't a register or number
-            cpu.getFlags().resetByName(rawText);
-        }
-        else {
-            throw VMException("EXECUTION ERROR: Unknown one-operand instruction '" + opCode + "'.");
         }
     }
 };
