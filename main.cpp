@@ -5,6 +5,70 @@
 
 using namespace std;
 
+// exception
+class VMException {
+    private:
+        string message;
+    public:
+        VMException(string msg) { message = msg; }
+        virtual ~VMException() {}
+        string getMessage() const { return message; }
+};
+
+// Specific exceptions inheriting from the base class
+class EmptyStackException : public VMException {
+public:
+    EmptyStackException() : VMException("CRITICAL ERROR: Attempted to pop from an empty stack.") {}
+};
+
+class InvalidMemoryException : public VMException {
+public:
+    InvalidMemoryException(int address) 
+        : VMException("MEMORY ERROR: Invalid memory access at address " + to_string(address)) {}
+};
+
+class IndexOutOfBoundsException : public VMException {
+public:
+    IndexOutOfBoundsException(int index) 
+        : VMException("VECTOR ERROR: Index " + to_string(index) + " is out of bounds.") {}
+};
+
+class InvalidRegisterException : public VMException {
+public:
+    InvalidRegisterException(int index) 
+        : VMException("REGISTER ERROR: Register index " + to_string(index) + " is outside valid range (0-7).") {} // Covers Table Items #1 & #2
+};
+
+class InvalidFlagException : public VMException {
+public:
+    InvalidFlagException(string flag) 
+        : VMException("FLAG ERROR: Unknown flag name '" + flag + "'. Valid flags are CF, ZF, UF, OF.") {} // Covers Table Item #3
+};
+
+class MalformedOperandException : public VMException {
+public:
+    MalformedOperandException(string text) 
+        : VMException("SYNTAX ERROR: Malformed or unexpected operand text: '" + text + "'.") {} // Covers Table Item #6
+};
+/*
+class DivideByZeroException : public VMException {
+public:
+    DivideByZeroException() : VMException("MATH ERROR: Division by zero is not allowed.") {} // Covers Item #7
+};
+
+class UnknownInstructionException : public VMException {
+public:
+    UnknownInstructionException(string inst) 
+        : VMException("PARSER ERROR: Unknown or typo'd instruction '" + inst + "'.") {} // Covers Item #9
+};
+
+class MultipleInstructionsException : public VMException {
+public:
+    MultipleInstructionsException(int line) 
+        : VMException("SYNTAX ERROR: Multiple instructions or extra text found on line " + to_string(line) + ".") {} // Covers Item #10
+};
+
+*/
 
 //data structure
 
@@ -311,8 +375,7 @@ public:
         if (idx >= 0 && idx < 8){
             index = idx;
         } else{
-            cerr << "Invalid register number" << endl;
-            index = -1;
+            throw InvalidRegisterException(idx);
         }
     }
 
@@ -372,7 +435,7 @@ public:
         } else if (flagName == "OF"){
             OverflowFlag = false;
         } else {
-            cerr << "Unknown flag name" << endl;
+            throw InvalidFlagException(flagName);
         }
     }
     //update flag result
@@ -463,6 +526,8 @@ public:
         Operand op;
         int len = text.length();
         
+        if (len == 0) throw MalformedOperandException("Empty Operand");
+
         //check got brackets?
         bool hasBrackets = (text[0] == '[' && text[len - 1] == ']');
 
@@ -497,9 +562,15 @@ public:
 
         op.setType(Immediate);
         int num = 0;
-        for (int i = 0; i < len; i++){
+        int startIndex = (text[0] == '-') ? 1 : 0; // Handle negative numbers
+        if (len == startIndex) throw MalformedOperandException(text); // Catches "-" with no numbers
+        for (int i = startIndex; i < len; i++){
+            if (text[i] < '0' || text[i] > '9') {
+                throw MalformedOperandException(text); // Item #6
+            }
             num = num * 10 + (text[i] - '0');
         }
+        if (startIndex == 1) num = -num; // Apply negative sign
         op.setValue(num);
         return op;
     }
@@ -555,17 +626,98 @@ signed char Memory::read(int address) const {
     if (address >= 0 && address < 64) {
         return data[address];
     } else {
-        throw VMException("Error: Memory read failed. Address out of bounds.");
+        throw InvalidMemoryException(address); // Item #8    
+        }
     }
-}
 
 void Memory::write(int address, signed char value) {
     if (address >= 0 && address < 64) {
         this->data[address] = value;
     } else {
-        throw VMException("Error: Memory write failed. Address out of bounds.");
+        throw InvalidMemoryException(address); // Item #8    
     }
 }
+
+//cpu
+class CPU {
+    GeneralRegister* registers[8]; //8 pointers r0-r7
+    FlagRegister flags;
+    int PC;
+    int SI;
+
+    Memory memory;
+
+    CustomStack <signed char> stack;
+public:
+    CPU(){
+        for (int i = 0; i < 8; i++){ //constructor to create all 8 registers, giving each one its correct index
+            registers[i] = new GeneralRegister(i);
+        }
+
+        PC = 0;
+        SI = 0;
+    }
+
+    virtual ~CPU(){  //destructor to clean up all registers when CPU is destroyed
+        for (int i = 0; i < 8; i++){
+            delete registers[i];
+        }
+    }
+    signed char getRegister(int idx) const{ //read the value stored in register idx (0-7)
+        if (idx >=0 && idx < 8){
+            return registers[idx] -> getRegister();
+        } else{
+            throw InvalidRegisterException(idx); // Item #2
+        }
+    }
+
+    void setRegister(int idx, signed char value){
+        if (idx >=0 && idx < 8){
+            registers[idx] -> setRegister(value);
+        } else{
+            throw InvalidRegisterException(idx); // Item #2        
+        }
+    }
+
+    FlagRegister &getFlags(){ //access to the FlagRegister so can check/update flags
+        return flags;
+    }
+
+    int getPC() const{ //program counter loh
+        return PC;
+    }
+
+    void setPC(int value){
+        PC = value;
+    }
+
+    void incrementPC(){
+        PC = PC + 1;
+    }
+
+    int getSI() const{ //stack index loh
+        return SI;
+    }
+    
+    // PLACEHOLDER 
+    signed char getMemory(int address) const{
+        return memory.read(address);    
+    }
+
+    // PLACEHOLDER 
+    void pushValue(signed char value){
+        stack.push(value);
+        SI = SI + 1;
+    }
+
+    signed char popValue(){
+        signed char v = stack.pop();
+        SI = SI - 1;
+        return v;
+        
+    }
+        
+};
 
 //instructions
 class Instructions{
@@ -645,123 +797,13 @@ public:
 };
 //class TwoOperandIntsturctions : public Instructions { SIMRAN
 
-//cpu
-class CPU {
-    GeneralRegister* registers[8]; //8 pointers r0-r7
-    FlagRegister flags;
-    int PC;
-    int SI;
 
-    //placeholder 
-    //Memory memory;
-
-    //placeholder
-    //Stack <signed char> stack;
-public:
-    CPU(){
-        for (int i = 0; i < 8; i++){ //constructor to create all 8 registers, giving each one its correct index
-            registers[i] = new GeneralRegister(i);
-        }
-
-        PC = 0;
-        SI = 0;
-    }
-
-    virtual ~CPU(){  //destructor to clean up all registers when CPU is destroyed
-        for (int i = 0; i < 8; i++){
-            delete registers[i];
-        }
-    }
-    signed char getRegister(int idx) const{ //read the value stored in register idx (0-7)
-        if (idx >=0 && idx <= 8){
-            return registers[idx] -> getRegister();
-        } else{
-            cerr << "invalid register number" << endl;
-            return 0;
-        }
-    }
-
-    void setRegister(int idx, signed char value){
-        if (idx >=0 && idx <= 8){
-            registers[idx] -> setRegister(value);
-        } else{
-            cerr << "invalid register number" << endl;
-        }
-    }
-
-    FlagRegister &getFlags(){ //access to the FlagRegister so can check/update flags
-        return flags;
-    }
-
-    int getPC() const{ //program counter loh
-        return PC;
-    }
-
-    void setPC(int value){
-        PC = value;
-    }
-
-    void incrementPC(){
-        PC = PC + 1;
-    }
-
-    int getSI() const{ //stack index loh
-        return SI;
-    }
-    
-    // PLACEHOLDER 
-    signed char getMemory(int address) const{
-        return memory.readByte(address);
-    }
-
-    // PLACEHOLDER 
-    void pushValue(signed char value){
-        stack.push(value);
-        SI = SI + 1;
-    }
-
-    signed char popValue(){
-        signed char v = stack.pop(){
-            SI = SI - 1;
-            return v;
-        }
-    }
-        
-}；
 
 
 
 //pasrser
 
 //runner
-
-// exception
-class VMException {
-    private:
-        string message;
-    public:
-        VMException(string msg) { message = msg; }
-        virtual ~VMException() {}
-        string getMessage() const { return message; }
-};
-
-// Specific exceptions inheriting from the base class
-class EmptyStackException : public VMException {
-public:
-    EmptyStackException() : VMException("CRITICAL ERROR: Attempted to pop from an empty stack.") {}
-};
-
-class InvalidMemoryException : public VMException {
-public:
-    InvalidMemoryException(int address) 
-        : VMException("MEMORY ERROR: Invalid memory access at address " + to_string(address)) {}
-};
-
-class IndexOutOfBoundsException : public VMException {
-public:
-    IndexOutOfBoundsException(int index) 
-        : VMException("VECTOR ERROR: Index " + to_string(index) + " is out of bounds.") {}
-};
 
 
 
