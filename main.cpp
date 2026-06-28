@@ -3,8 +3,349 @@
 #include <sstream>
 #include <string>
 #include <iomanip>
-#include <vector>
 using namespace std;
+
+// exception
+class VMException {
+    private:
+        string message;
+    public:
+        VMException(string msg) { message = msg; }
+        virtual ~VMException() {}
+        string getMessage() const { return message; }
+};
+
+// Specific exceptions inheriting from the base class
+class EmptyStackException : public VMException {
+public:
+    EmptyStackException() : VMException("CRITICAL ERROR: Attempted to pop from an empty stack.") {}
+};
+
+class InvalidMemoryException : public VMException {
+public:
+    InvalidMemoryException(int address) 
+        : VMException("MEMORY ERROR: Invalid memory access at address " + to_string(address)) {}
+};
+
+class IndexOutOfBoundsException : public VMException {
+public:
+    IndexOutOfBoundsException(int index) 
+        : VMException("VECTOR ERROR: Index " + to_string(index) + " is out of bounds.") {}
+};
+
+class InvalidRegisterException : public VMException {
+public:
+    InvalidRegisterException(int index) 
+        : VMException("REGISTER ERROR: Register index " + to_string(index) + " is outside valid range (0-7).") {} // Covers Table Items #1 & #2
+};
+
+class InvalidFlagException : public VMException {
+public:
+    InvalidFlagException(string flag) 
+        : VMException("FLAG ERROR: Unknown flag name '" + flag + "'. Valid flags are CF, ZF, UF, OF.") {} // Covers Table Item #3
+};
+
+class MalformedOperandException : public VMException {
+public:
+    MalformedOperandException(string text) 
+        : VMException("SYNTAX ERROR: Malformed or unexpected operand text: '" + text + "'.") {} // Covers Table Item #6
+};
+/*
+class DivideByZeroException : public VMException {
+public:
+    DivideByZeroException() : VMException("MATH ERROR: Division by zero is not allowed.") {} // Covers Item #7
+};
+
+class UnknownInstructionException : public VMException {
+public:
+    UnknownInstructionException(string inst) 
+        : VMException("PARSER ERROR: Unknown or typo'd instruction '" + inst + "'.") {} // Covers Item #9
+};
+
+class MultipleInstructionsException : public VMException {
+public:
+    MultipleInstructionsException(int line) 
+        : VMException("SYNTAX ERROR: Multiple instructions or extra text found on line " + to_string(line) + ".") {} // Covers Item #10
+};
+
+*/
+
+//data structure
+
+//vector
+template <typename T>
+class CustomVector {
+private:
+    T* data;           // Dynamic array to hold the elements.
+    int currentSize;   // Tracks the number of actual items.
+    int capacity;      // Tracks the total allocated memory size.
+
+    // Helper function to double the array size when it gets full.
+    void expand() {
+        int newCapacity = (capacity == 0) ? 2 : capacity * 2;
+        T* newData = new T[newCapacity];
+        for (int i = 0; i < currentSize; i++) {
+            newData[i] = data[i];
+        }
+        delete[] data;
+        data = newData;
+        capacity = newCapacity;
+    }
+
+public:
+    CustomVector() {
+        capacity = 10;
+        currentSize = 0;
+        data = new T[capacity];
+    }
+
+    ~CustomVector() {
+        delete[] data; // Clean up memory to prevent leaks.
+    }
+
+    // Copy Constructor: Performs a deep copy of the underlying array
+    CustomVector(const CustomVector& other) {
+        capacity = other.capacity;
+        currentSize = other.currentSize;
+        data = new T[capacity];
+        for (int i = 0; i < currentSize; i++) {
+            data[i] = other.data[i];
+        }
+    }
+
+    // Assignment Operator: Cleans up existing memory before copying
+    CustomVector& operator=(const CustomVector& other) {
+        if (this != &other) { 
+            delete[] data; 
+            capacity = other.capacity;
+            currentSize = other.currentSize;
+            data = new T[capacity];
+            for (int i = 0; i < currentSize; i++) {
+                data[i] = other.data[i];
+            }
+        }
+        return *this;
+    }
+
+    void push_back(const T& value) {
+        if (currentSize == capacity) {
+            expand(); // Resize if capacity is reached.
+        }
+        data[currentSize] = value;
+        currentSize++;
+    }
+
+    // Removes the last element from the vector
+    void pop_back() {
+        if (currentSize > 0) {
+            currentSize--;
+        } else {
+            throw VMException("VECTOR ERROR: Attempted to pop_back from an empty vector.");
+        }
+    }
+
+    // Removes an item and shifts remaining items left to prevent gaps in memory.
+    void erase(int index) {
+        if (index < 0 || index >= currentSize) {
+            throw IndexOutOfBoundsException(index);
+        }
+        // Shift elements left to fill the gap created by the removed item.
+        for (int i = index; i < currentSize - 1; i++) {
+            data[i] = data[i + 1];
+        }
+        currentSize--;
+    }
+
+    T get(int index) const {
+        if (index < 0 || index >= currentSize) {
+            throw IndexOutOfBoundsException(index);
+        }
+        return data[index];
+    }
+
+    // Safely gets an item with bounds checking
+    T at(int index) const {
+        if (index < 0 || index >= currentSize) {
+            throw IndexOutOfBoundsException(index);
+        }
+        return data[index];
+    }
+
+    // Overloaded [] operator for standard array-like access (Read/Write)
+    T &operator[](int index) {
+        return data[index];
+    }
+
+    // Overloaded [] operator for standard array-like access (Read-Only)
+    const T &operator[](int index) const {
+        return data[index];
+    }
+
+    int size() const { return currentSize; }
+};
+//Queue
+template <typename T>
+class CustomQueue {
+private:
+    T* data;
+    int capacity;
+    int frontIndex; // Points to the first item.
+    int rearIndex;  // Points to the last item.
+    int count;      // Tracks total items currently in the queue.
+
+    // Expands the array and realigns the circular structure into a straight line.
+    void expand() {
+        int oldCapacity = capacity;
+        int newCapacity = (oldCapacity == 0) ? 2 : oldCapacity * 2;
+        T* newData = new T[newCapacity];
+        
+        for (int i = 0; i < count; i++) {
+            // Guarded: Uses oldCapacity to safely unwrap, avoiding modulo by 0
+            int safeIndex = (oldCapacity > 0) ? ((frontIndex + i) % oldCapacity) : 0;
+            newData[i] = data[safeIndex];
+        }
+        
+        delete[] data;
+        data = newData;
+        frontIndex = 0;
+        rearIndex = count - 1;
+        capacity = newCapacity;
+    }
+
+public:
+    CustomQueue() {
+        capacity = 10;
+        data = new T[capacity];
+        frontIndex = 0;
+        rearIndex = -1;
+        count = 0;
+    }
+
+    ~CustomQueue() { delete[] data; }
+
+    // Copy Constructor
+    CustomQueue(const CustomQueue& other) {
+        capacity = other.capacity;
+        frontIndex = other.frontIndex;
+        rearIndex = other.rearIndex;
+        count = other.count;
+        data = new T[capacity];
+        for (int i = 0; i < capacity; i++) {
+            data[i] = other.data[i];
+        }
+    }
+
+    // Assignment Operator
+    CustomQueue& operator=(const CustomQueue& other) {
+        if (this != &other) {
+            delete[] data;
+            capacity = other.capacity;
+            frontIndex = other.frontIndex;
+            rearIndex = other.rearIndex;
+            count = other.count;
+            data = new T[capacity];
+            for (int i = 0; i < capacity; i++) {
+                data[i] = other.data[i];
+            }
+        }
+        return *this;
+    }
+
+    void enqueue(const T& value) {
+        if (count == capacity) {
+            expand();
+        }
+        // Modulo arithmetic wraps the rear index back to 0 if it reaches the end.
+        rearIndex = (rearIndex + 1) % capacity;
+        data[rearIndex] = value;
+        count++;
+    }
+
+    T dequeue() {
+        if (isEmpty()) {
+            throw VMException("QUEUE ERROR: Attempted to dequeue from an empty queue.");
+        }
+        T value = data[frontIndex];
+        // Modulo arithmetic wraps the front index back to 0 if it reaches the end.
+        frontIndex = (frontIndex + 1) % capacity;
+        count--;
+        return value;
+    }
+
+    bool isEmpty() const { return count == 0; }
+};
+//Stack
+template <typename T>
+class CustomStack {
+private:
+    T* data;
+    int capacity;
+    int currentSize;
+
+    void expand() {
+        capacity = (capacity == 0) ? 2 : capacity * 2;
+        T* newData = new T[capacity];
+        for (int i = 0; i < currentSize; i++) {
+            newData[i] = data[i];
+        }
+        delete[] data;
+        data = newData;
+    }
+
+public:
+    CustomStack() {
+        capacity = 8; // Virtual machine stack is 8 elements.
+        currentSize = 0;
+        data = new T[capacity];
+    }
+
+    ~CustomStack() { delete[] data; }
+
+    CustomStack(const CustomStack& other) {
+        capacity = other.capacity;
+        currentSize = other.currentSize;
+        data = new T[capacity];
+        for (int i = 0; i < currentSize; i++) {
+            data[i] = other.data[i];
+        }
+    }
+
+    CustomStack& operator=(const CustomStack& other) {
+        if (this != &other) {
+            delete[] data;
+            capacity = other.capacity;
+            currentSize = other.currentSize;
+            data = new T[capacity];
+            for (int i = 0; i < currentSize; i++) {
+                data[i] = other.data[i];
+            }
+        }
+        return *this;
+    }
+
+    void push(const T& value) {
+        if (currentSize == capacity) {
+            expand();
+        }
+        // Adds item to the top of the stack.
+        data[currentSize] = value;
+        currentSize++;
+    }
+
+    T pop() {
+        if (isEmpty()) {
+            // Assignment constraint: Crash/stop safely on empty pop.
+            throw EmptyStackException(); 
+        }
+        currentSize--;
+        return data[currentSize];
+    }
+
+    bool isEmpty() const { return currentSize == 0; }
+
+    bool isFull() const { return currentSize == capacity; }
+};
+
 
 //registers
 class Register{
@@ -116,10 +457,10 @@ public:
         } else{
             ZeroFlag = false;
         }
-        if (result > 255 || result < 0){
-        CarryFlag = true;
-        } else{
-        CarryFlag = false;
+        if (result > 127 || result < -128){  // CHANGED only when exceeds signed char range
+            CarryFlag = true;
+        } else {
+            CarryFlag = false;
         }
     }
 };
@@ -199,7 +540,7 @@ public:
 
             if (isValidRegister(inside)){
                 op.setType(indirectMem);
-                int regNum = inside[1] - 1 - '0';
+                int regNum = inside[1] - 1 - '0'; // not CHANGED but Claude mention got bug? can u help check 
                 op.setRegIndex(regNum);
             } else{
                 op.setType(directMem);
@@ -219,23 +560,57 @@ public:
             return op;
         }
 
-        op.setType(Immediate);
-        int num = 0;
-        for (int i = 0; i < len; i++){
-            num = num * 10 + (text[i] - '0');
-        }
-        op.setValue(num);
-        return op;
+        op.setType(Immediate); // CHANGED 
+            int num = 0;
+            int startIndex = (text[0] == '-') ? 1 : 0;  // skip '-' if negative
+            if (len == startIndex){
+                throw MalformedOperandException(text);
+            }
+            for (int i = startIndex; i < len; i++){
+                if (text[i] < '0' || text[i] > '9'){
+                    throw MalformedOperandException(text);
+                }
+                num = num * 10 + (text[i] - '0');
+            }
+            if (startIndex == 1) num = -num;  // apply negative sign
+            op.setValue(num);
+            return op;
     }
 };
 
 
 //memory
+class Memory {
+private:
+        // 1-dimensional array of 64 signed bytes
+    signed char data[64];
 
+public:
+       
+    Memory(){
+        for (int i = 0; i < 64; ++i) {
+            data[i] = 0;
+        }
+    }   
+    
+    signed char read(int address) const{
+        if (address >= 0 && address < 64) {
+            return data[address];
+        } else {
+            throw InvalidMemoryException(address); // Item #8    
+        }
+    }
 
-//class OneOperandInstructions : public Instructions { janine
+       
+    void write(int address, signed char value){
+        if (address >= 0 && address < 64) {
+            this->data[address] = value;
+        } else {
+            throw InvalidMemoryException(address); // Item #8    
+        }
+    }
 
-//class TwoOperandIntsturctions : public Instructions { SIMRAN
+};
 
 //cpu
 class CPU {
@@ -244,11 +619,9 @@ class CPU {
     int PC;
     int SI;
 
-    //placeholder 
-    //Memory memory;
+    Memory memory;
+    CustomStack <signed char> stack; // CHANGED 
 
-    //placeholder
-    //Stack <signed char> stack;
 public:
     CPU(){
         for (int i = 0; i < 8; i++){ //constructor to create all 8 registers, giving each one its correct index
@@ -300,11 +673,15 @@ public:
     int getSI() const{ //stack index loh
         return SI;
     }
-    /*
+
     // PLACEHOLDER 
     signed char getMemory(int address) const{
-        return memory.readByte(address);
+        return memory.read(address);    
     }
+    
+    void setMemory(int address, signed char value){
+    memory.write(address, value);
+}
 
     // PLACEHOLDER 
     void pushValue(signed char value){
@@ -313,12 +690,12 @@ public:
     }
 
     signed char popValue(){
-        signed char v = stack.pop(){
-            SI = SI - 1;
-            return v;
-        }
+        signed char v = stack.pop();
+        SI = SI - 1;
+        return v;
+        
     }
-        */
+        
 };
 
 //instructions
@@ -342,6 +719,65 @@ public:
 };
 
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// from janine part 
+
+class OneOperandInstruction : public Instructions {
+private:
+    string opCode;     // E.g., "INC", "PUSH", "RESET"
+    Operand operand;   // Parsed operand details
+    string rawText;    // Raw string (useful for "CF", "ZF" in RESET)
+
+public:
+    OneOperandInstruction(int line, string op, Operand opnd, string raw = "") 
+        : Instructions(line), opCode(op), operand(opnd), rawText(raw) {}
+
+    void execute(CPU &cpu) override {
+        int regIdx = operand.getRegIndex();
+
+        if (opCode == "INC") {
+            signed char val = cpu.getRegister(regIdx);
+            val++;
+            cpu.setRegister(regIdx, val);
+            cpu.getFlags().updateFromResult(val);
+        } 
+        else if (opCode == "DEC") {
+            signed char val = cpu.getRegister(regIdx);
+            val--;
+            cpu.setRegister(regIdx, val);
+            cpu.getFlags().updateFromResult(val);
+        } 
+        else if (opCode == "PUSH") {
+            // Requires CPU CustomStack methods to be uncommented
+            cpu.pushValue(cpu.getRegister(regIdx)); 
+        } 
+        else if (opCode == "POP") {
+            // Requires CPU CustomStack methods to be uncommented
+            cpu.setRegister(regIdx, cpu.popValue());
+        } 
+        else if (opCode == "DISPLAY") {
+            // Cast to int to print the number, not the ASCII symbol
+            cout << static_cast<int>(cpu.getRegister(regIdx)) << endl;
+        } 
+        else if (opCode == "INPUT") {
+            int inputVal;
+            cout << "? ";
+            cin >> inputVal;
+            
+            // Store as signed char, but update flags based on the raw integer input
+            cpu.setRegister(regIdx, static_cast<signed char>(inputVal));
+            cpu.getFlags().updateFromResult(inputVal);
+        } 
+        else if (opCode == "RESET") {
+            // Uses the raw string (e.g., "CF") since it isn't a register or number
+            cpu.getFlags().resetByName(rawText);
+        }
+        else {
+            throw VMException("EXECUTION ERROR: Unknown one-operand instruction '" + opCode + "'.");
+        }
+    }
+};
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 class TwoOperandInstruction : public Instructions {
 protected:
@@ -367,10 +803,10 @@ public:
             cpu.setRegister(dest, cpu.getRegister(op2.getRegIndex()));
         }
         else if (op2.getType() == indirectMem){
-            // TODO: cpu.setRegister(dest, cpu.getMemory(cpu.getRegister(op2.getRegIndex())));
+            cpu.setRegister(dest, cpu.getMemory(cpu.getRegister(op2.getRegIndex())));
         }
         else if (op2.getType() == directMem){
-            // TODO: cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
+            cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
         }
         else{ cerr << "Invalid MOV operand!" << endl; }
     }
@@ -434,8 +870,19 @@ class DIVInstruction : public TwoOperandInstruction {
 public:
     DIVInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
     void execute(CPU &cpu){
-        // TODO: HOLD - spec ambiguous on division order
-        cerr << "DIV not yet implemented" << endl;
+        int dest = op1.getRegIndex();
+        int result;
+        if (op2.getType() == Immediate){
+            if (cpu.getRegister(dest) == 0){ cerr << "Division by zero!" << endl; return; }
+            result = op2.getValue() / cpu.getRegister(dest);
+        }
+        else if (op2.getType() == Register){
+            if (cpu.getRegister(dest) == 0){ cerr << "Division by zero!" << endl; return; }
+            result = cpu.getRegister(op2.getRegIndex()) / cpu.getRegister(dest);
+        }
+        else{ cerr << "Invalid DIV operand!" << endl; return; }
+        cpu.setRegister(dest, (signed char)result);
+        cpu.getFlags().updateFromResult(result);
     }
 };
 
@@ -446,11 +893,11 @@ public:
         int dest = op1.getRegIndex();
         if (op2.getType() == indirectMem){
             // LOAD R1, [R2]
-            // TODO: cpu.setRegister(dest, cpu.getMemory(cpu.getRegister(op2.getRegIndex())));
+            cpu.setRegister(dest, cpu.getMemory(cpu.getRegister(op2.getRegIndex())));
         }
         else if (op2.getType() == directMem){
             // LOAD R1, [20]
-            // TODO: cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
+            cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
         }
         else{ cerr << "Invalid LOAD operand!" << endl; }
     }
@@ -461,20 +908,102 @@ public:
     STOREInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
     void execute(CPU &cpu){
         if (op1.getType() == Register && op2.getType() == Immediate){
-            // STORE R1, 43
-            // TODO: cpu.setMemory(op2.getValue(), cpu.getRegister(op1.getRegIndex()));
+            // STORE R1, 43 → store R1's value into address 43
+            cpu.setMemory(op2.getValue(), cpu.getRegister(op1.getRegIndex()));
         }
         else if (op1.getType() == Register && op2.getType() == indirectMem){
             // STORE R1, [R2]
-            // TODO: cpu.setMemory(cpu.getRegister(op2.getRegIndex()), cpu.getRegister(op1.getRegIndex()));
+            cpu.setMemory(cpu.getRegister(op2.getRegIndex()), cpu.getRegister(op1.getRegIndex()));
         }
-        else if (op1.getType() == directMem && op2.getType() == Register){
-            // STORE 20, R2
-            // TODO: cpu.setMemory(op1.getValue(), cpu.getRegister(op2.getRegIndex()));
+        else if (op1.getType() == Immediate && op2.getType() == Register){
+            // STORE 20, R3 → store R3's value into address 20
+            cpu.setMemory(op1.getValue(), cpu.getRegister(op2.getRegIndex()));
         }
         else{ cerr << "Invalid STORE operand!" << endl; }
     }
 };
+
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+class ShiftInstruction : public TwoOperandInstruction {
+protected:
+    int destReg;
+    int count;
+
+    unsigned char convertUnsigned(CPU &cpu){
+        return static_cast<unsigned char>(cpu.getRegister(destReg));
+    }
+
+    void storeResult(CPU &cpu, unsigned char val){
+        cpu.setRegister(destReg, static_cast<signed char>(val));
+    }
+public:
+    ShiftInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2) {
+        destReg = o1.getRegIndex();
+        count = o2.getValue();
+    }
+
+    virtual ~ShiftInstruction(){
+    }
+};
+
+class ROLCommand : public ShiftInstruction {
+public:
+    ROLCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
+    }
+
+    void execute(CPU &cpu) override {
+        unsigned char val = convertUnsigned(cpu);
+        int shiftCount   = count % 8;
+        val = (val << shiftCount) | (val >> (8 - shiftCount));
+        storeResult(cpu, val);
+    }
+};
+
+class RORCommand : public ShiftInstruction {
+public:
+    RORCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
+    }
+
+    void execute(CPU &cpu) override {
+        unsigned char val = convertUnsigned(cpu);
+        int shiftCount = count % 8;
+        val = (val >> shiftCount) | (val << (8 - shiftCount));
+        storeResult(cpu, val);
+    }
+};
+
+class SHLCommand : public ShiftInstruction {
+public:
+    SHLCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
+    }
+
+    void execute(CPU &cpu) override {
+        unsigned char val = convertUnsigned(cpu);
+        if (count >= 8) {
+            val = 0;
+        } else {
+            val = val << count;
+        }
+        storeResult(cpu, val);
+    }
+};
+
+class SHRCommand : public ShiftInstruction {
+public:
+    SHRCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
+    }
+
+    void execute(CPU &cpu) override {
+        unsigned char val = convertUnsigned(cpu);
+        if (count >= 8) {
+            val = 0;
+        } else {
+            val = val >> count;
+        }
+        storeResult(cpu, val);
+    }
+};
+
 
 class FilterFromFile {
 public:
@@ -484,8 +1013,8 @@ public:
         } return line;
     }
     
-    vector<string> split(string FilteredLine) {
-        vector<string> words;
+    CustomVector<string> split(string FilteredLine) {
+        CustomVector<string> words;
         stringstream ss(FilteredLine);
         string currentWord;
         while (ss >> currentWord) {
@@ -508,8 +1037,8 @@ private:
 public:
     Parser(){};
     
-    vector<vector<string>> FileOpening(string filename) {
-        vector<vector<string>> FinalInstructions;
+    CustomVector<CustomVector<string>> FileOpening(string filename) {
+        CustomVector<CustomVector<string>> FinalInstructions;
         string Lines;
         ifstream inputFromFile(filename);
         if (inputFromFile.fail()){
@@ -518,7 +1047,7 @@ public:
         } else {
             while(getline(inputFromFile, Lines)){
                 string cleanLine = Filter.toUpperCase(Filter.RemoveComma(Lines));
-                vector<string> ExtractedWords = Filter.split(cleanLine);
+                CustomVector<string> ExtractedWords = Filter.split(cleanLine);
                 if (ExtractedWords.size() > 0){
                     FinalInstructions.push_back(ExtractedWords);
                 }
@@ -532,44 +1061,51 @@ public:
 class Runner {
 private:
     Parser parser;
-    vector<vector<string>> program;
+    CustomVector<CustomVector<string>> program;
     CPU cpu;
 
-    void executeInstruction(vector<string> instruction, int lineNum){
-    string opcode = instruction[0];
-    Instructions* instr = nullptr;
-    
-    Operand operandParser;
-    Operand op1, op2;
-    
-    if (instruction.size() > 1) op1 = operandParser.readOperand(instruction[1]);
-    if (instruction.size() > 2) op2 = operandParser.readOperand(instruction[2]);
+    void executeInstruction(CustomVector<string> instruction, int lineNum){
+        string opcode = instruction[0];
+        Instructions* instr = nullptr;
+        Operand operandParser;
+        Operand op1, op2;
 
-    if (opcode == "MOV") instr = new MOVInstruction(lineNum, op1, op2);
-    else if (opcode == "ADD") instr = new ADDInstruction(lineNum, op1, op2);
-    else if (opcode == "SUB") instr = new SUBInstruction(lineNum, op1, op2);
-    else if (opcode == "MUL") instr = new MULInstruction(lineNum, op1, op2);
-    else if (opcode == "DIV") instr = new DIVInstruction(lineNum, op1, op2);
-    else if (opcode == "LOAD") instr = new LOADInstruction(lineNum, op1, op2);
-    else if (opcode == "STORE") instr = new STOREInstruction(lineNum, op1, op2);
-    
-    else if (opcode == "INC") { /* TODO: Person 3 */ }
-    else if (opcode == "DEC") { /* TODO: Person 3 */ }
-    else if (opcode == "PUSH") { /* TODO: Person 3 */ }
-    else if (opcode == "POP") { /* TODO: Person 3 */ }
-    else if (opcode == "INPUT") { /* TODO: Person 3 */ }
-    else if (opcode == "DISPLAY") { /* TODO: Person 3 */ }
-    else if (opcode == "RESET") { /* TODO: Person 3 */ }
-    
-    else {
-        cerr << "Unknown instruction: " << opcode << endl;
-        exit(1);
-    }
+        // handle RESET and 1-operand first (before parsing operands)
+        if (opcode == "RESET"){
+            Operand dummy;
+            instr = new OneOperandInstruction(lineNum, "RESET", dummy, instruction[1]);
+        }
+        else if (opcode == "INC" || opcode == "DEC" || opcode == "PUSH" || 
+                opcode == "POP" || opcode == "INPUT" || opcode == "DISPLAY"){
+            Operand opnd = operandParser.readOperand(instruction[1]);
+            instr = new OneOperandInstruction(lineNum, opcode, opnd);
+        }
+        else {
+            // parse operands only for 2-operand instructions
+            if (instruction.size() > 1) op1 = operandParser.readOperand(instruction[1]);
+            if (instruction.size() > 2) op2 = operandParser.readOperand(instruction[2]);
 
-    if (instr != nullptr){
-        instr->execute(cpu);
-        delete instr;
-    }
+            if (opcode == "MOV") instr = new MOVInstruction(lineNum, op1, op2);
+            else if (opcode == "ADD") instr = new ADDInstruction(lineNum, op1, op2);
+            else if (opcode == "SUB") instr = new SUBInstruction(lineNum, op1, op2);
+            else if (opcode == "MUL") instr = new MULInstruction(lineNum, op1, op2);
+            else if (opcode == "DIV") instr = new DIVInstruction(lineNum, op1, op2);
+            else if (opcode == "LOAD") instr = new LOADInstruction(lineNum, op1, op2);
+            else if (opcode == "STORE") instr = new STOREInstruction(lineNum, op1, op2);
+            else if (opcode == "ROL") instr = new ROLCommand(lineNum, op1, op2);
+            else if (opcode == "ROR") instr = new RORCommand(lineNum, op1, op2);
+            else if (opcode == "SHL") instr = new SHLCommand(lineNum, op1, op2);
+            else if (opcode == "SHR") instr = new SHRCommand(lineNum, op1, op2);
+            else {
+                cerr << "Unknown instruction: " << opcode << endl;
+                exit(1);
+            }
+        }
+
+        if (instr != nullptr){
+            instr->execute(cpu);
+            delete instr;
+        }
     }
 
 public:
@@ -580,43 +1116,59 @@ public:
     void run(){
         for (int i = 0; i < program.size(); i++){
             executeInstruction(program[i], i);
+            cpu.incrementPC();
+
         }
     }
 
+    void writeLine(ofstream &outFile, string text){
+        cout << text << endl;
+        outFile << text << endl;
+    }
+
+    string formatVal(int val, int width){
+        string digits = to_string(abs(val));
+        while((int)digits.length() < width) digits = "0" + digits;
+        return (val < 0 ? "-" : "") + digits;
+    }
+
     void dump(){
-        cout << "#Begin#" << endl;
-        cout << "#Registers#"; 
-        for(int i=0; i<8; i++){
-            int regVal = (int)cpu.getRegister(i);
-            if (regVal < 0){
-                cout << "-" << setfill('0') << setw(3) << abs(regVal) << "#";
-            } else {
-                cout << setfill('0') << setw(4) << regVal << "#";
-            }
-        }
-        cout << endl;
+        ofstream outFile("output.txt");
+        if (outFile.fail()){ cerr << "Error opening output file!" << endl; return; }
 
-        int OF = 0, UF = 0, CF = 0, ZF = 0;
+        writeLine(outFile, "#Begin#");
 
-        cout << "#Flags#"
-             << "OF#" << cpu.getFlags().getOverflow() << "#"
-             << "UF#" << cpu.getFlags().getUnderflow() << "#"
-             << "CF#" << cpu.getFlags().getCarry() << "#"
-             << "ZF#" << cpu.getFlags().getZero() << "#"
-             << endl;
-        
-        cout << "#PC#" << setfill('0') << setw(4) << cpu.getPC() << "#" << endl;
-
-        cout << "#Memory#" << endl;
+        // registers
+        string regLine = "#Registers#";
         for(int i = 0; i < 8; i++){
-            cout << "#";
-            for(int j = 0; j < 8; j++){
-                                //cout << setfill('0') << setw(4) << memory[i*8+j] << "#";
-            }
-            cout << endl;
-            cout << "Removed Hardcoded, will manually add in next" << endl;
+            int val = (int)cpu.getRegister(i);
+            regLine += formatVal(val, val < 0 ? 3 : 4) + "#";
         }
-        cout << "#End#" << endl;
+        writeLine(outFile, regLine);
+
+        // flags
+        string flagLine = "#Flags#OF#" + to_string(cpu.getFlags().getOverflow()) +
+                        "#UF#" + to_string(cpu.getFlags().getUnderflow()) +
+                        "#CF#" + to_string(cpu.getFlags().getCarry()) +
+                        "#ZF#" + to_string(cpu.getFlags().getZero()) + "#";
+        writeLine(outFile, flagLine);
+
+        // PC
+        writeLine(outFile, "#PC#" + formatVal(cpu.getPC(), 4) + "#");
+
+        // memory
+        writeLine(outFile, "#Memory#");
+        for(int i = 0; i < 8; i++){
+            string memLine = "#";
+            for(int j = 0; j < 8; j++){
+                int val = (int)cpu.getMemory(i*8+j);
+                memLine += formatVal(val, val < 0 ? 3 : 4) + "#";
+            }
+            writeLine(outFile, memLine);
+        }
+
+        writeLine(outFile, "#End#");
+        outFile.close();
     }
 };
 
