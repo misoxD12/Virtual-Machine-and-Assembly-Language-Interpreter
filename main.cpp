@@ -788,7 +788,6 @@ public:
         op2 = o2;
     }
     virtual ~TwoOperandInstruction(){}
-    virtual void execute(CPU &cpu) = 0;
 };
 
 class MOVInstruction : public TwoOperandInstruction {
@@ -1062,6 +1061,7 @@ class Runner {
 private:
     Parser parser;
     CustomVector<CustomVector<string>> program;
+    CustomQueue<string> executionHistory;
     CPU cpu;
 
     void executeInstruction(CustomVector<string> instruction, int lineNum){
@@ -1106,11 +1106,19 @@ private:
             instr->execute(cpu);
             delete instr;
         }
+        executionHistory.enqueue("Line " + to_string((lineNum) + 1) + ": executed " + opcode);
     }
 
 public:
     void load(string filename){
         program = parser.FileOpening(filename);
+    }
+
+    void printHistory(){
+        cout << endl << "<>-- Execution History --<>" << endl;
+        while (!executionHistory.isEmpty()){
+            cout << executionHistory.dequeue() << endl;
+        }
     }
     
     void run(){
@@ -1177,5 +1185,6 @@ int main(){
     runner.load("assembly.asm");
     runner.run();
     runner.dump(); 
+    runner.printHistory();
     return 0;
 }
