@@ -557,12 +557,12 @@ public:
         }
 
         int num = 0;
-        for (int i = 0; i < len; i++){
+        for (int i = startIndex; i < len; i++){
             num = num * 10 + (text[i] - '0');
         }
 
         if(isNegative){
-            num = -num
+            num = -num;
         }
 
         op.setValue(num);
@@ -572,7 +572,7 @@ public:
     Operand readOperand(string text){
         int len = text.length();
         if(len == 0){
-            throw MalformedOperandException("Empty Operand")
+            throw MalformedOperandException("Empty Operand");
         };
         //check got brackets?
         bool hasBrackets = (text[0] == '[' && text[len - 1] == ']');
