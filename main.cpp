@@ -50,7 +50,7 @@ public:
     MalformedOperandException(string text) 
         : VMException("SYNTAX ERROR: Malformed or unexpected operand text: '" + text + "'.") {} // Covers Table Item #6
 };
-/*
+
 class DivideByZeroException : public VMException {
 public:
     DivideByZeroException() : VMException("MATH ERROR: Division by zero is not allowed.") {} // Covers Item #7
@@ -68,7 +68,29 @@ public:
         : VMException("SYNTAX ERROR: Multiple instructions or extra text found on line " + to_string(line) + ".") {} // Covers Item #10
 };
 
-*/
+class InvalidShiftCountException : public VMException {
+public:
+    InvalidShiftCountException(int count) 
+        : VMException("SHIFT ERROR: Shift/rotate count " + to_string(count) + " is invalid.") {}
+};
+
+class InvalidInputException : public VMException {
+public:
+    InvalidInputException(string text) 
+        : VMException("INPUT ERROR: '" + text + "' is not a valid integer.") {}
+};
+
+class FileIOException : public VMException {
+public:
+    FileIOException(string filename) 
+        : VMException("FILE ERROR: Unable to open file: " + filename) {}
+};
+
+class InvalidOperandLogicException : public VMException {
+public:
+    InvalidOperandLogicException(string instruction) 
+        : VMException("EXECUTION ERROR: Invalid operand combination for " + instruction + " instruction.") {}
+};
 
 //data structure
 
@@ -376,8 +398,7 @@ public:
         if (idx >= 0 && idx < 8){
             index = idx;
         } else{
-            cerr << "Invalid register number" << endl;
-            index = -1;
+            throw InvalidRegisterException(idx);
         }
     }
 
@@ -437,7 +458,7 @@ public:
         } else if (flagName == "OF"){
             OverflowFlag = false;
         } else {
-            cerr << "Unknown flag name" << endl;
+            throw InvalidFlagException(flagName);
         }
     }
     //update flag result
@@ -457,7 +478,7 @@ public:
         } else{
             ZeroFlag = false;
         }
-        if (result > 127 || result < -128){  // CHANGED only when exceeds signed char range
+        if (result > 255 || result < 0){  
             CarryFlag = true;
         } else {
             CarryFlag = false;
@@ -465,14 +486,6 @@ public:
     }
 };
 
-//to be update
-//int result = R[destination] + R[source];
-//flags.updateFromResult(result);
-
-/** 
-int result = registers[destination]->get() + registers[source]->get();
-flags.updateFromResult(result);
-**/
 
 //operand
 //number these type
@@ -523,61 +536,75 @@ public:
         }
     }
 
-    //read operand and figure which operand type it is
-    Operand readOperand(string text){
+    //handles the case where text has brackets
+    Operand readBracketOperand(string text, int len){
         Operand op;
+        //store the content in the brackets
+        string inside = "";
+        for (int i = 1; i < len-1; i++){
+            inside = inside + text [i];
+        }
+
+        if (isValidRegister(inside)){
+            op.setType(indirectMem);
+            int regNum = inside[1] - '0';
+            op.setRegIndex(regNum);
+        } else{
+            op.setType(directMem);
+            int address = 0;
+            for (int i = 0; i < (int)inside.length(); i++){
+                address = address * 10 + (inside[i] - '0');
+            }
+            op.setValue(address);
+        }
+        return op;
+    }
+    Operand readImmediateOperand(string text, int len){
+        Operand op;
+        op.setType(Immediate);
+
+        int startIndex = 0;
+        bool isNegative = false;
+        if (text[0] == '-'){
+            startIndex = 1;
+            isNegative = true;
+        }
+
+        int num = 0;
+        for (int i = startIndex; i < len; i++){
+            num = num * 10 + (text[i] - '0');
+        }
+
+        if(isNegative){
+            num = -num;
+        }
+
+        op.setValue(num);
+        return op;
+    }
+
+    Operand readOperand(string text){
         int len = text.length();
-        
+        if(len == 0){
+            throw MalformedOperandException("Empty Operand");
+        };
         //check got brackets?
         bool hasBrackets = (text[0] == '[' && text[len - 1] == ']');
 
         if (hasBrackets) {
-            //store the content in the brackets
-            string inside = "";
-            for (int i = 1; i < len-1; i++){
-                inside = inside + text [i];
-            }
-
-            if (isValidRegister(inside)){
-                op.setType(indirectMem);
-                int regNum = inside[1] - 1 - '0'; // not CHANGED but Claude mention got bug? can u help check 
-                op.setRegIndex(regNum);
-            } else{
-                op.setType(directMem);
-                int address = 0;
-                for (int i = 0; i < (int)inside.length(); i++){
-                    address = address * 10 + (inside[i] - '0');
-                }
-                op.setValue(address);
-            }
-            return op;
+            return readBracketOperand(text, len);
         }
 
         if (isValidRegister(text)){
+            Operand op;
             op.setType (Register);
             int regNum = text[1] - '0';
             op.setRegIndex(regNum);
             return op;
         }
-
-        op.setType(Immediate); // CHANGED 
-            int num = 0;
-            int startIndex = (text[0] == '-') ? 1 : 0;  // skip '-' if negative
-            if (len == startIndex){
-                throw MalformedOperandException(text);
-            }
-            for (int i = startIndex; i < len; i++){
-                if (text[i] < '0' || text[i] > '9'){
-                    throw MalformedOperandException(text);
-                }
-                num = num * 10 + (text[i] - '0');
-            }
-            if (startIndex == 1) num = -num;  // apply negative sign
-            op.setValue(num);
-            return op;
+        return readImmediateOperand(text, len);
     }
 };
-
 
 //memory
 class Memory {
@@ -591,9 +618,11 @@ public:
         for (int i = 0; i < 64; ++i) {
             data[i] = 0;
         }
-    }   
+    }
     
-    signed char read(int address) const{
+    virtual ~Memory() {}
+
+    signed char readMemory(int address) const{
         if (address >= 0 && address < 64) {
             return data[address];
         } else {
@@ -602,7 +631,7 @@ public:
     }
 
        
-    void write(int address, signed char value){
+    void writeMemory(int address, signed char value){
         if (address >= 0 && address < 64) {
             this->data[address] = value;
         } else {
@@ -620,7 +649,7 @@ class CPU {
     int SI;
 
     Memory memory;
-    CustomStack <signed char> stack; // CHANGED 
+    CustomStack <signed char> stack; 
 
 public:
     CPU(){
@@ -641,16 +670,15 @@ public:
         if (idx >=0 && idx < 8){
             return registers[idx] -> getRegister();
         } else{
-            cerr << "invalid register number" << endl;
-            return 0;
+            throw InvalidRegisterException(idx);
         }
     }
 
     void setRegister(int idx, signed char value){
-        if (int i = 0; i < 8){
+        if (idx >=0 && idx < 8){
             registers[idx] -> setRegister(value);
         } else{
-            cerr << "invalid register number" << endl;
+            throw InvalidRegisterException(idx);
         }
     }
 
@@ -676,11 +704,11 @@ public:
 
     // PLACEHOLDER 
     signed char getMemory(int address) const{
-        return memory.read(address);    
+        return memory.readMemory(address);    
     }
     
     void setMemory(int address, signed char value){
-    memory.write(address, value);
+    memory.writeMemory(address, value);
 }
 
     // PLACEHOLDER 
@@ -698,10 +726,6 @@ public:
         
 };
 
-
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// from janine part 
-
 //instructions
 class Instructions{
 protected:
@@ -710,10 +734,7 @@ public:
     Instructions(int line){ //constructor
         lineNum = line;
     }
-
-    virtual ~Instructions(){
-    }
-
+    virtual ~Instructions(){}
     virtual void execute(CPU &cpu) = 0; //for instrcution polymorphsm
 
     int getLineNum() const{
@@ -730,7 +751,6 @@ public:
         op = o;
     }
     virtual ~OneOperandInstruction() {}
-    virtual void execute(CPU &cpu) = 0; 
 };
 
 
@@ -799,6 +819,12 @@ public:
         int inputVal;
         cout << "? ";
         cin >> inputVal;
+
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(1000, '\n');
+            throw InvalidInputException("non-numeric input");
+        }
         
         cpu.setRegister(op.getRegIndex(), static_cast<signed char>(inputVal));
         cpu.getFlags().updateFromResult(inputVal);
@@ -813,7 +839,6 @@ public:
         cout << static_cast<int>(cpu.getRegister(op.getRegIndex())) << endl;
     }
 };
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 class TwoOperandInstruction : public Instructions {
 protected:
@@ -843,7 +868,7 @@ public:
         else if (op2.getType() == directMem){
             cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
         }
-        else{ cerr << "Invalid MOV operand!" << endl; }
+        else{ throw InvalidOperandLogicException("MOV"); }
     }
 };
 
@@ -859,7 +884,7 @@ public:
         else if (op2.getType() == Register){
             result = cpu.getRegister(dest) + cpu.getRegister(op2.getRegIndex());
         }
-        else{ cerr << "Invalid ADD operand!" << endl; }
+        else{ throw InvalidOperandLogicException("ADD"); }
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result);
     }
@@ -877,7 +902,7 @@ public:
         else if (op2.getType() == Register){
             result = cpu.getRegister(dest) - cpu.getRegister(op2.getRegIndex());
         }
-        else{ cerr << "Invalid SUB operand!" << endl; }
+        else{ throw InvalidOperandLogicException("SUB"); }
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result);
     }
@@ -895,7 +920,7 @@ public:
         else if (op2.getType() == Register){
             result = cpu.getRegister(dest) * cpu.getRegister(op2.getRegIndex());
         }
-        else{ cerr << "Invalid MUL operand!" << endl; }
+        else{ throw InvalidOperandLogicException("MUL"); }
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result);
     }
@@ -908,14 +933,14 @@ public:
         int dest = op1.getRegIndex();
         int result;
         if (op2.getType() == Immediate){
-            if (cpu.getRegister(dest) == 0){ cerr << "Division by zero!" << endl; return; }
+            if (cpu.getRegister(dest) == 0){ throw DivideByZeroException(); return; }
             result = op2.getValue() / cpu.getRegister(dest);
         }
         else if (op2.getType() == Register){
-            if (cpu.getRegister(dest) == 0){ cerr << "Division by zero!" << endl; return; }
+            if (cpu.getRegister(dest) == 0){ throw DivideByZeroException(); return; }
             result = cpu.getRegister(op2.getRegIndex()) / cpu.getRegister(dest);
         }
-        else{ cerr << "Invalid DIV operand!" << endl; return; }
+        else{ throw InvalidOperandLogicException("DIV"); return; }
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result);
     }
@@ -934,7 +959,7 @@ public:
             // LOAD R1, [20]
             cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
         }
-        else{ cerr << "Invalid LOAD operand!" << endl; }
+        else{ throw InvalidOperandLogicException("LOAD"); }
     }
 };
 
@@ -954,11 +979,10 @@ public:
             // STORE 20, R3 → store R3's value into address 20
             cpu.setMemory(op1.getValue(), cpu.getRegister(op2.getRegIndex()));
         }
-        else{ cerr << "Invalid STORE operand!" << endl; }
+        else{ throw InvalidOperandLogicException("STORE"); }
     }
 };
 
-//-----------------------------------------------------------------------------------------------------------------------------------------------
 class ShiftInstruction : public TwoOperandInstruction {
 protected:
     int destReg;
@@ -975,6 +999,9 @@ public:
     ShiftInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2) {
         destReg = o1.getRegIndex();
         count = o2.getValue();
+        if (count < 0){
+            throw InvalidShiftCountException(count);
+        }
     }
 
     virtual ~ShiftInstruction(){
@@ -1078,7 +1105,7 @@ public:
         string Lines;
         ifstream inputFromFile(filename);
         if (inputFromFile.fail()){
-            cerr << "Error in opening the file" << endl; 
+            throw FileIOException(filename); 
             return FinalInstructions;
         } else {
             while(getline(inputFromFile, Lines)){
@@ -1143,8 +1170,7 @@ private:
             if (instruction.size() > 2) op2 = operandParser.readOperand(instruction[2]);
             instr = createTwoOperand(opcode, lineNum, op1, op2);
             if (instr == nullptr){
-                cerr << "Unknown instruction: " << opcode << endl;
-                exit(1);
+                throw UnknownInstructionException(opcode);
             }
         }
         if (instr != nullptr){
@@ -1186,7 +1212,7 @@ public:
 
     void dump(){
         ofstream outFile("output.txt");
-        if (outFile.fail()){ cerr << "Error opening output file!" << endl; return; }
+        if (outFile.fail()){ throw FileIOException("output.txt"); return; }
 
         writeLine(outFile, "#Begin#");
 
