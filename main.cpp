@@ -2,7 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-//bugggggs
+#include <iomanip>
 using namespace std;
 
 // exception
@@ -50,7 +50,7 @@ public:
     MalformedOperandException(string text) 
         : VMException("SYNTAX ERROR: Malformed or unexpected operand text: '" + text + "'.") {} // Covers Table Item #6
 };
-/*
+
 class DivideByZeroException : public VMException {
 public:
     DivideByZeroException() : VMException("MATH ERROR: Division by zero is not allowed.") {} // Covers Item #7
@@ -68,7 +68,7 @@ public:
         : VMException("SYNTAX ERROR: Multiple instructions or extra text found on line " + to_string(line) + ".") {} // Covers Item #10
 };
 
-*/
+
 
 //data structure
 
@@ -346,6 +346,7 @@ public:
     bool isFull() const { return currentSize == capacity; }
 };
 
+
 //registers
 class Register{
 protected:
@@ -375,8 +376,7 @@ public:
         if (idx >= 0 && idx < 8){
             index = idx;
         } else{
-            cerr << "Invalid register number" << endl;
-            index = -1;
+            throw InvalidRegisterException(idx);
         }
     }
 
@@ -436,7 +436,7 @@ public:
         } else if (flagName == "OF"){
             OverflowFlag = false;
         } else {
-            cerr << "Unknown flag name" << endl;
+            throw InvalidFlagException(flagName);
         }
     }
     //update flag result
@@ -456,10 +456,10 @@ public:
         } else{
             ZeroFlag = false;
         }
-        if (result > 255 || result < 0){
-        CarryFlag = true;
-        } else{
-        CarryFlag = false;
+        if (result > 127 || result < -128){  
+            CarryFlag = true;
+        } else {
+            CarryFlag = false;
         }
     }
 };
@@ -522,42 +522,31 @@ public:
         }
     }
 
-    //read operand and figure which operand type it is
-    Operand readOperand(string text){
+    //handles the case where text has brackets
+    Operand readBracketOperand(string text, int len){
         Operand op;
-        int len = text.length();
-        
-        //check got brackets?
-        bool hasBrackets = (text[0] == '[' && text[len - 1] == ']');
-
-        if (hasBrackets) {
-            //store the content in the brackets
-            string inside = "";
-            for (int i = 1; i < len-1; i++){
-                inside = inside + text [i];
-            }
-
-            if (isValidRegister(inside)){
-                op.setType(indirectMem);
-                int regNum = inside[1] - 1 - '0';
-                op.setRegIndex(regNum);
-            } else{
-                op.setType(directMem);
-                int address = 0;
-                for (int i = 0; i < (int)inside.length(); i++){
-                    address = address * 10 + (inside[i] - '0');
-                }
-                op.setValue(address);
-            }
-            return op;
+        //store the content in the brackets
+        string inside = "";
+        for (int i = 1; i < len-1; i++){
+            inside = inside + text [i];
         }
 
-        if (isValidRegister(text)){
-            op.setType (Register);
-            int regNum = text[1] - '0';
+        if (isValidRegister(inside)){
+            op.setType(indirectMem);
+            int regNum = inside[1] - '0';
             op.setRegIndex(regNum);
-            return op;
+        } else{
+            op.setType(directMem);
+            int address = 0;
+            for (int i = 0; i < (int)inside.length(); i++){
+                address = address * 10 + (inside[i] - '0');
+            }
+            op.setValue(address);
         }
+        return op;
+    }
+    Operand readImmediateOperand(string text, int len){
+        Operand op;
 
         op.setType(Immediate);
         int num = 0;
@@ -567,31 +556,29 @@ public:
         op.setValue(num);
         return op;
     }
+
+    Operand readOperand(string text){
+        int len = text.length();
+        if(len == 0){
+            throw MalformedOperandException("Empty Operand")
+        };
+        //check got brackets?
+        bool hasBrackets = (text[0] == '[' && text[len - 1] == ']');
+
+        if (hasBrackets) {
+            return readBracketOperand(text, len);
+        }
+
+        if (isValidRegister(text)){
+            Operand op;
+            op.setType (Register);
+            int regNum = text[1] - '0';
+            op.setRegIndex(regNum);
+            return op;
+        }
+        return readImmediateOperand(text, len);
+    }
 };
-
-
-class CPU;
-
-//instructions
-class Instructions{
-protected:
-    int lineNum;
-public:
-    Instructions(int line){ //constructor
-        lineNum = line;
-    }
-
-    virtual ~Instructions(){
-    }
-
-    virtual void execute(CPU &cpu) = 0; //for instrcution polymorphsm
-
-    int getLineNum() const{
-        return lineNum;
-    }
-
-};
-
 
 //memory
 class Memory {
@@ -607,7 +594,9 @@ public:
         }
     }
     
-    signed char read(int address) const{
+    virtual ~Memory() {}
+
+    signed char readMemory(int address) const{
         if (address >= 0 && address < 64) {
             return data[address];
         } else {
@@ -616,7 +605,7 @@ public:
     }
 
        
-    void write(int address, signed char value){
+    void writeMemory(int address, signed char value){
         if (address >= 0 && address < 64) {
             this->data[address] = value;
         } else {
@@ -626,17 +615,16 @@ public:
 
 };
 
-
 //cpu
 class CPU {
     GeneralRegister* registers[8]; //8 pointers r0-r7
     FlagRegister flags;
     int PC;
     int SI;
-    Memory memory;
 
-    Stack <signed char> stack;
-    
+    Memory memory;
+    CustomStack <signed char> stack; 
+
 public:
     CPU(){
         for (int i = 0; i < 8; i++){ //constructor to create all 8 registers, giving each one its correct index
@@ -653,19 +641,18 @@ public:
         }
     }
     signed char getRegister(int idx) const{ //read the value stored in register idx (0-7)
-        if (idx >=0 && idx <= 8){
+        if (idx >=0 && idx < 8){
             return registers[idx] -> getRegister();
         } else{
-            cerr << "invalid register number" << endl;
-            return 0;
+            throw InvalidRegisterException(idx);
         }
     }
 
     void setRegister(int idx, signed char value){
-        if (idx >=0 && idx <= 8){
+        if (idx >=0 && idx < 8){
             registers[idx] -> setRegister(value);
         } else{
-            cerr << "invalid register number" << endl;
+            throw InvalidRegisterException(idx);
         }
     }
 
@@ -689,21 +676,28 @@ public:
         return SI;
     }
 
+    // PLACEHOLDER 
     signed char getMemory(int address) const{
-        return memory.readByte(address);
+        return memory.readMemory(address);    
     }
+    
+    void setMemory(int address, signed char value){
+    memory.writeMemory(address, value);
+}
 
+    // PLACEHOLDER 
     void pushValue(signed char value){
         stack.push(value);
         SI = SI + 1;
     }
 
     signed char popValue(){
-        signed char v = stack.pop(){
-            SI = SI - 1;
-            return v;
-        }
+        signed char v = stack.pop();
+        SI = SI - 1;
+        return v;
+        
     }
+        
 };
 
 //instructions
@@ -727,79 +721,201 @@ public:
 };
 
 //class OneOperandInstructions : public Instructions { janine
-class OneOperandInstruction : public Instructions {
+// Logic for Math-based instructions (INC, DEC)
+class MathInstruction : public Instructions {
 private:
-    string opCode;     // E.g., "INC", "PUSH", "RESET"
-    Operand operand;   // Parsed operand details
-    string rawText;    // Raw string (useful for "CF", "ZF" in RESET)
-
+    string opCode;
+    Operand op;
 public:
-    OneOperandInstruction(int line, string op, Operand opnd, string raw = "") 
-        : Instructions(line), opCode(op), operand(opnd), rawText(raw) {}
+    MathInstruction(int line, string op, Operand o) : Instructions(line), opCode(op), op(o) {}
 
     void execute(CPU &cpu) override {
-        int regIdx = operand.getRegIndex();
+        int val = cpu.getRegister(op.getRegIndex());
+        if (opCode == "INC") val++;
+        else val--;
+        
+        cpu.getFlags().updateFromResult(val);
+        cpu.setRegister(op.getRegIndex(), static_cast<signed char>(val));
+    }
+};
 
-        if (opCode == "INC") {
-            signed char val = cpu.getRegister(regIdx);
-            val++;
-            cpu.setRegister(regIdx, val);
-            cpu.getFlags().updateFromResult(val);
-        } 
-        else if (opCode == "DEC") {
-            signed char val = cpu.getRegister(regIdx);
-            val--;
-            cpu.setRegister(regIdx, val);
-            cpu.getFlags().updateFromResult(val);
-        } 
-        else if (opCode == "PUSH") {
-            // Requires CPU CustomStack methods to be uncommented
-            cpu.pushValue(cpu.getRegister(regIdx)); 
-        } 
-        else if (opCode == "POP") {
-            // Requires CPU CustomStack methods to be uncommented
-            cpu.setRegister(regIdx, cpu.popValue());
-        } 
-        else if (opCode == "DISPLAY") {
-            // Cast to int to print the number, not the ASCII symbol
-            cout << static_cast<int>(cpu.getRegister(regIdx)) << endl;
-        } 
-        else if (opCode == "INPUT") {
+// Logic for Stack-based instructions (PUSH, POP)
+class StackInstruction : public Instructions {
+private:
+    string opCode;
+    Operand op;
+public:
+    StackInstruction(int line, string op, Operand o) : Instructions(line), opCode(op), op(o) {}
+
+    void execute(CPU &cpu) override {
+        if (opCode == "PUSH") cpu.pushValue(cpu.getRegister(op.getRegIndex()));
+        else cpu.setRegister(op.getRegIndex(), cpu.popValue());
+    }
+};
+
+// Logic for I/O based instructions (INPUT, DISPLAY)
+class IOInstruction : public Instructions {
+private:
+    string opCode;
+    Operand op;
+public:
+    IOInstruction(int line, string op, Operand o) : Instructions(line), opCode(op), op(o) {}
+
+    void execute(CPU &cpu) override {
+        if (opCode == "DISPLAY") cout << static_cast<int>(cpu.getRegister(op.getRegIndex())) << endl;
+        else {
             int inputVal;
             cout << "? ";
             cin >> inputVal;
-            
-            // Store as signed char, but update flags based on the raw integer input
-            cpu.setRegister(regIdx, static_cast<signed char>(inputVal));
+            cpu.setRegister(op.getRegIndex(), static_cast<signed char>(inputVal));
             cpu.getFlags().updateFromResult(inputVal);
-        } 
-        else if (opCode == "RESET") {
-            // Uses the raw string (e.g., "CF") since it isn't a register or number
-            cpu.getFlags().resetByName(rawText);
-        }
-        else {
-            throw VMException("EXECUTION ERROR: Unknown one-operand instruction '" + opCode + "'.");
         }
     }
 };
 
 class TwoOperandInstruction : public Instructions {
 protected:
-    Operand op1, op2;   // use Operand, already correctly parsed - not raw strings
-
+    Operand op1, op2;
 public:
     TwoOperandInstruction(int line, Operand o1, Operand o2) : Instructions(line){
         op1 = o1;
         op2 = o2;
     }
-
-    virtual ~TwoOperandInstruction(){
-    }
-
+    virtual ~TwoOperandInstruction(){}
+    virtual void execute(CPU &cpu) = 0;
 };
 
+class MOVInstruction : public TwoOperandInstruction {
+public:
+    MOVInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        int dest = op1.getRegIndex();
+        if (op2.getType() == Immediate){
+            cpu.setRegister(dest, (signed char)op2.getValue());
+        }
+        else if (op2.getType() == Register){
+            cpu.setRegister(dest, cpu.getRegister(op2.getRegIndex()));
+        }
+        else if (op2.getType() == indirectMem){
+            cpu.setRegister(dest, cpu.getMemory(cpu.getRegister(op2.getRegIndex())));
+        }
+        else if (op2.getType() == directMem){
+            cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
+        }
+        else{ cerr << "Invalid MOV operand!" << endl; }
+    }
+};
 
+class ADDInstruction : public TwoOperandInstruction {
+public:
+    ADDInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        int dest = op1.getRegIndex();
+        int result;
+        if (op2.getType() == Immediate){
+            result = cpu.getRegister(dest) + op2.getValue();
+        }
+        else if (op2.getType() == Register){
+            result = cpu.getRegister(dest) + cpu.getRegister(op2.getRegIndex());
+        }
+        else{ cerr << "Invalid ADD operand!" << endl; }
+        cpu.setRegister(dest, (signed char)result);
+        cpu.getFlags().updateFromResult(result);
+    }
+};
 
+class SUBInstruction : public TwoOperandInstruction {
+public:
+    SUBInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        int dest = op1.getRegIndex();
+        int result;
+        if (op2.getType() == Immediate){
+            result = cpu.getRegister(dest) - op2.getValue();
+        }
+        else if (op2.getType() == Register){
+            result = cpu.getRegister(dest) - cpu.getRegister(op2.getRegIndex());
+        }
+        else{ cerr << "Invalid SUB operand!" << endl; }
+        cpu.setRegister(dest, (signed char)result);
+        cpu.getFlags().updateFromResult(result);
+    }
+};
+
+class MULInstruction : public TwoOperandInstruction {
+public:
+    MULInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        int dest = op1.getRegIndex();
+        int result;
+        if (op2.getType() == Immediate){
+            result = cpu.getRegister(dest) * op2.getValue();
+        }
+        else if (op2.getType() == Register){
+            result = cpu.getRegister(dest) * cpu.getRegister(op2.getRegIndex());
+        }
+        else{ cerr << "Invalid MUL operand!" << endl; }
+        cpu.setRegister(dest, (signed char)result);
+        cpu.getFlags().updateFromResult(result);
+    }
+};
+
+class DIVInstruction : public TwoOperandInstruction {
+public:
+    DIVInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        int dest = op1.getRegIndex();
+        int result;
+        if (op2.getType() == Immediate){
+            if (cpu.getRegister(dest) == 0){ cerr << "Division by zero!" << endl; return; }
+            result = op2.getValue() / cpu.getRegister(dest);
+        }
+        else if (op2.getType() == Register){
+            if (cpu.getRegister(dest) == 0){ cerr << "Division by zero!" << endl; return; }
+            result = cpu.getRegister(op2.getRegIndex()) / cpu.getRegister(dest);
+        }
+        else{ cerr << "Invalid DIV operand!" << endl; return; }
+        cpu.setRegister(dest, (signed char)result);
+        cpu.getFlags().updateFromResult(result);
+    }
+};
+
+class LOADInstruction : public TwoOperandInstruction {
+public:
+    LOADInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        int dest = op1.getRegIndex();
+        if (op2.getType() == indirectMem){
+            // LOAD R1, [R2]
+            cpu.setRegister(dest, cpu.getMemory(cpu.getRegister(op2.getRegIndex())));
+        }
+        else if (op2.getType() == directMem){
+            // LOAD R1, [20]
+            cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
+        }
+        else{ cerr << "Invalid LOAD operand!" << endl; }
+    }
+};
+
+class STOREInstruction : public TwoOperandInstruction {
+public:
+    STOREInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        if (op1.getType() == Register && op2.getType() == Immediate){
+            // STORE R1, 43 → store R1's value into address 43
+            cpu.setMemory(op2.getValue(), cpu.getRegister(op1.getRegIndex()));
+        }
+        else if (op1.getType() == Register && op2.getType() == indirectMem){
+            // STORE R1, [R2]
+            cpu.setMemory(cpu.getRegister(op2.getRegIndex()), cpu.getRegister(op1.getRegIndex()));
+        }
+        else if (op1.getType() == Immediate && op2.getType() == Register){
+            // STORE 20, R3 → store R3's value into address 20
+            cpu.setMemory(op1.getValue(), cpu.getRegister(op2.getRegIndex()));
+        }
+        else{ cerr << "Invalid STORE operand!" << endl; }
+    }
+};
 
 class ShiftInstruction : public TwoOperandInstruction {
 protected:
@@ -882,9 +998,177 @@ public:
 };
 
 
+class FilterFromFile {
+public:
+    string RemoveComma(string line){
+        for (int i=0; i<line.length(); i++){
+            if (line[i] == ',') {line[i] = ' ';}
+        } return line;
+    }
+    
+    CustomVector<string> split(string FilteredLine) {
+        CustomVector<string> words;
+        stringstream ss(FilteredLine);
+        string currentWord;
+        while (ss >> currentWord) {
+            words.push_back(currentWord);
+        }
+        return words;
+    }
 
-//pasrser
+    string toUpperCase(string line){
+        for (int i = 0; i < line.length(); i++){
+            line[i] = toupper(line[i]);
+        }
+        return line;
+    }
+};
 
-//runner
+class Parser {
+private:
+    FilterFromFile Filter;
+public:
+    Parser(){};
+    
+    CustomVector<CustomVector<string>> FileOpening(string filename) {
+        CustomVector<CustomVector<string>> FinalInstructions;
+        string Lines;
+        ifstream inputFromFile(filename);
+        if (inputFromFile.fail()){
+            cerr << "Error in opening the file" << endl; 
+            return FinalInstructions;
+        } else {
+            while(getline(inputFromFile, Lines)){
+                string cleanLine = Filter.toUpperCase(Filter.RemoveComma(Lines));
+                CustomVector<string> ExtractedWords = Filter.split(cleanLine);
+                if (ExtractedWords.size() > 0){
+                    FinalInstructions.push_back(ExtractedWords);
+                }
+            }
+        }
+        inputFromFile.close();
+        return FinalInstructions;
+    }
+};
 
+class Runner {
+private:
+    Parser parser;
+    CustomVector<CustomVector<string>> program;
+    CPU cpu;
 
+    void executeInstruction(CustomVector<string> instruction, int lineNum){
+        string opcode = instruction[0];
+        Instructions* instr = nullptr;
+        Operand operandParser;
+        Operand op1, op2;
+
+        // handle RESET and 1-operand first (before parsing operands)
+        if (opcode == "RESET"){
+            Operand dummy;
+            instr = new OneOperandInstruction(lineNum, "RESET", dummy, instruction[1]);
+        }
+        else if (opcode == "INC" || opcode == "DEC" || opcode == "PUSH" || 
+                opcode == "POP" || opcode == "INPUT" || opcode == "DISPLAY"){
+            Operand opnd = operandParser.readOperand(instruction[1]);
+            instr = new OneOperandInstruction(lineNum, opcode, opnd);
+        }
+        else {
+            // parse operands only for 2-operand instructions
+            if (instruction.size() > 1) op1 = operandParser.readOperand(instruction[1]);
+            if (instruction.size() > 2) op2 = operandParser.readOperand(instruction[2]);
+
+            if (opcode == "MOV") instr = new MOVInstruction(lineNum, op1, op2);
+            else if (opcode == "ADD") instr = new ADDInstruction(lineNum, op1, op2);
+            else if (opcode == "SUB") instr = new SUBInstruction(lineNum, op1, op2);
+            else if (opcode == "MUL") instr = new MULInstruction(lineNum, op1, op2);
+            else if (opcode == "DIV") instr = new DIVInstruction(lineNum, op1, op2);
+            else if (opcode == "LOAD") instr = new LOADInstruction(lineNum, op1, op2);
+            else if (opcode == "STORE") instr = new STOREInstruction(lineNum, op1, op2);
+            else if (opcode == "ROL") instr = new ROLCommand(lineNum, op1, op2);
+            else if (opcode == "ROR") instr = new RORCommand(lineNum, op1, op2);
+            else if (opcode == "SHL") instr = new SHLCommand(lineNum, op1, op2);
+            else if (opcode == "SHR") instr = new SHRCommand(lineNum, op1, op2);
+            else {
+                cerr << "Unknown instruction: " << opcode << endl;
+                exit(1);
+            }
+        }
+
+        if (instr != nullptr){
+            instr->execute(cpu);
+            delete instr;
+        }
+    }
+
+public:
+    void load(string filename){
+        program = parser.FileOpening(filename);
+    }
+    
+    void run(){
+        for (int i = 0; i < program.size(); i++){
+            executeInstruction(program[i], i);
+            cpu.incrementPC();
+
+        }
+    }
+
+    void writeLine(ofstream &outFile, string text){
+        cout << text << endl;
+        outFile << text << endl;
+    }
+
+    string formatVal(int val, int width){
+        string digits = to_string(abs(val));
+        while((int)digits.length() < width) digits = "0" + digits;
+        return (val < 0 ? "-" : "") + digits;
+    }
+
+    void dump(){
+        ofstream outFile("output.txt");
+        if (outFile.fail()){ cerr << "Error opening output file!" << endl; return; }
+
+        writeLine(outFile, "#Begin#");
+
+        // registers
+        string regLine = "#Registers#";
+        for(int i = 0; i < 8; i++){
+            int val = (int)cpu.getRegister(i);
+            regLine += formatVal(val, val < 0 ? 3 : 4) + "#";
+        }
+        writeLine(outFile, regLine);
+
+        // flags
+        string flagLine = "#Flags#OF#" + to_string(cpu.getFlags().getOverflow()) +
+                        "#UF#" + to_string(cpu.getFlags().getUnderflow()) +
+                        "#CF#" + to_string(cpu.getFlags().getCarry()) +
+                        "#ZF#" + to_string(cpu.getFlags().getZero()) + "#";
+        writeLine(outFile, flagLine);
+
+        // PC
+        writeLine(outFile, "#PC#" + formatVal(cpu.getPC(), 4) + "#");
+
+        // memory
+        writeLine(outFile, "#Memory#");
+        for(int i = 0; i < 8; i++){
+            string memLine = "#";
+            for(int j = 0; j < 8; j++){
+                int val = (int)cpu.getMemory(i*8+j);
+                memLine += formatVal(val, val < 0 ? 3 : 4) + "#";
+            }
+            writeLine(outFile, memLine);
+        }
+
+        writeLine(outFile, "#End#");
+        outFile.close();
+    }
+};
+
+int main(){
+    Runner runner;
+    runner.load("assembly.asm");
+    runner.run();
+    runner.dump(); 
+    return 0;
+}
