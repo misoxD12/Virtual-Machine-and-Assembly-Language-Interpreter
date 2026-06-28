@@ -12,6 +12,7 @@ class VMException {
     public:
         VMException(string msg) { 
             message = msg;
+            cout << "Error found. Terminating program." << endl;
             cout << message << endl;
             exit(1);
         }
@@ -46,7 +47,7 @@ public:
 class InvalidFlagException : public VMException {
 public:
     InvalidFlagException(string flag) 
-        : VMException("FLAG ERROR: Unknown flag name '" + flag + "'. Valid flags are CF, ZF, UF, OF.") {} // Covers Table Item #3
+        : VMException("FLAG ERROR: Unknown flag name '" + flag + "'. Valid flags are OF, UF, CF, ZF.") {} // Covers Table Item #3
 };
 
 class MalformedOperandException : public VMException {
@@ -1105,24 +1106,35 @@ public:
 class Parser {
 private:
     FilterFromFile Filter;
+    bool isOpcode(string token){
+        string opcodes[] = {"MOV","ADD","SUB","MUL","DIV","INC","DEC","ROL","ROR","SHL","SHR","LOAD","STORE","RESET","PUSH","POP","INPUT","DISPLAY"};
+        for (int i = 0; i < 18; i++){
+            if (token == opcodes[i]) return true;
+        }
+        return false;
+    }
 public:
     Parser(){};
-    
     CustomVector<CustomVector<string>> FileOpening(string filename) {
         CustomVector<CustomVector<string>> FinalInstructions;
-        
         string Lines;
+        int lineNum = 0;  // add counter!!
         ifstream inputFromFile(filename);
         if (inputFromFile.fail()){
             throw FileIOException(filename); 
-            return FinalInstructions;
-        } else {
-            while(getline(inputFromFile, Lines)){
-                string cleanLine = Filter.toUpperCase(Filter.RemoveComma(Lines));
-                CustomVector<string> ExtractedWords = Filter.split(cleanLine);
-                if (ExtractedWords.size() > 0){
-                    FinalInstructions.push_back(ExtractedWords);
+        }
+        while(getline(inputFromFile, Lines)){
+            lineNum++;  // increment each line!!
+            string cleanLine = Filter.toUpperCase(Filter.RemoveComma(Lines));
+            CustomVector<string> ExtractedWords = Filter.split(cleanLine);
+            
+            if (ExtractedWords.size() > 0){
+                for (int i = 1; i < ExtractedWords.size(); i++){
+                    if (isOpcode(ExtractedWords[i])){
+                        throw MultipleInstructionsException(lineNum);  // pass line number!!
+                    }
                 }
+                FinalInstructions.push_back(ExtractedWords);
             }
         }
         inputFromFile.close();
@@ -1133,8 +1145,7 @@ public:
 class Runner {
 private:
     Parser parser;
-    CustomVector<CustomVector<string>> program;
-    CustomQueue<string> executionHistory;
+    CustomQueue<CustomVector<string>> program;
     CPU cpu;
 
     Instructions* createOneOperand(string opcode, int lineNum, CustomVector<string> instruction){
@@ -1186,27 +1197,23 @@ private:
             instr->execute(cpu);
             delete instr;
         }
-        executionHistory.enqueue("Line " + to_string(lineNum+1) + ": executed " + opcode);
     }
 public:
     void load(string filename){
-        program = parser.FileOpening(filename);
+    CustomVector<CustomVector<string>> parsed = parser.FileOpening(filename);
+    for (int i = 0; i < parsed.size(); i++){
+        program.enqueue(parsed[i]);
     }
-
-    void printHistory(){
-        cout << endl << "<>-- Execution History --<>" << endl;
-        while (!executionHistory.isEmpty()){
-            cout << executionHistory.dequeue() << endl;
-        }
-    }
+}
     
     void run(){
-        for (int i = 0; i < program.size(); i++){
-            executeInstruction(program[i], i);
-            cpu.incrementPC();
-
-        }
+    int lineNum = 0;
+    while (!program.isEmpty()){
+        executeInstruction(program.dequeue(), lineNum);
+        cpu.incrementPC();
+        lineNum++;
     }
+}
 
     void writeLine(ofstream &outFile, string text){
         cout << text << endl;
@@ -1264,6 +1271,5 @@ int main(){
     runner.load("assembly.asm");
     runner.run();
     runner.dump(); 
-    runner.printHistory();
     return 0;
 }
