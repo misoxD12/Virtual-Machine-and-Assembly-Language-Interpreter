@@ -700,6 +700,9 @@ public:
         
 };
 
+
+
+
 //instructions
 class Instructions{
 protected:
@@ -708,10 +711,7 @@ public:
     Instructions(int line){ //constructor
         lineNum = line;
     }
-
-    virtual ~Instructions(){
-    }
-
+    virtual ~Instructions(){}
     virtual void execute(CPU &cpu) = 0; //for instrcution polymorphsm
 
     int getLineNum() const{
