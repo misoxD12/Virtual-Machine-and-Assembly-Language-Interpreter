@@ -547,12 +547,24 @@ public:
     }
     Operand readImmediateOperand(string text, int len){
         Operand op;
-
         op.setType(Immediate);
+
+        int startIndex = 0;
+        bool isNegative = false;
+        if (text[0] == '-'){
+            startIndex = 1;
+            isNegative = true;
+        }
+
         int num = 0;
         for (int i = 0; i < len; i++){
             num = num * 10 + (text[i] - '0');
         }
+
+        if(isNegative){
+            num = -num
+        }
+
         op.setValue(num);
         return op;
     }
