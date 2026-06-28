@@ -794,7 +794,6 @@ public:
         op2 = o2;
     }
     virtual ~TwoOperandInstruction(){}
-    virtual void execute(CPU &cpu) = 0;
 };
 
 class MOVInstruction : public TwoOperandInstruction {
