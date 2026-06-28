@@ -698,6 +698,10 @@ public:
         
 };
 
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// from janine part 
+
 //instructions
 class Instructions{
 protected:
@@ -718,66 +722,98 @@ public:
 
 };
 
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// from janine part 
-
 class OneOperandInstruction : public Instructions {
-private:
-    string opCode;     // E.g., "INC", "PUSH", "RESET"
-    Operand operand;   // Parsed operand details
-    string rawText;    // Raw string (useful for "CF", "ZF" in RESET)
-
+protected:
+    Operand op;
 public:
-    OneOperandInstruction(int line, string op, Operand opnd, string raw = "") 
-        : Instructions(line), opCode(op), operand(opnd), rawText(raw) {}
+    OneOperandInstruction(int line, Operand o) : Instructions(line) {
+        op = o;
+    }
+    virtual ~OneOperandInstruction() {}
+    virtual void execute(CPU &cpu) = 0; 
+};
 
+
+class RESETInstruction : public Instructions {
+private:
+    string targetFlag;
+public:
+    RESETInstruction(int line, string flag) : Instructions(line), targetFlag(flag) {}
+    
     void execute(CPU &cpu) override {
-        int regIdx = operand.getRegIndex();
+        // Your FlagRegister class already has this perfect helper function!
+        cpu.getFlags().resetByName(targetFlag);
+    }
+};
 
-        if (opCode == "INC") {
-            signed char val = cpu.getRegister(regIdx);
-            val++;
-            cpu.setRegister(regIdx, val);
-            cpu.getFlags().updateFromResult(val);
-        } 
-        else if (opCode == "DEC") {
-            signed char val = cpu.getRegister(regIdx);
-            val--;
-            cpu.setRegister(regIdx, val);
-            cpu.getFlags().updateFromResult(val);
-        } 
-        else if (opCode == "PUSH") {
-            // Requires CPU CustomStack methods to be uncommented
-            cpu.pushValue(cpu.getRegister(regIdx)); 
-        } 
-        else if (opCode == "POP") {
-            // Requires CPU CustomStack methods to be uncommented
-            cpu.setRegister(regIdx, cpu.popValue());
-        } 
-        else if (opCode == "DISPLAY") {
-            // Cast to int to print the number, not the ASCII symbol
-            cout << static_cast<int>(cpu.getRegister(regIdx)) << endl;
-        } 
-        else if (opCode == "INPUT") {
-            int inputVal;
-            cout << "? ";
-            cin >> inputVal;
-            
-            // Store as signed char, but update flags based on the raw integer input
-            cpu.setRegister(regIdx, static_cast<signed char>(inputVal));
-            cpu.getFlags().updateFromResult(inputVal);
-        } 
-        else if (opCode == "RESET") {
-            // Uses the raw string (e.g., "CF") since it isn't a register or number
-            cpu.getFlags().resetByName(rawText);
-        }
-        else {
-            throw VMException("EXECUTION ERROR: Unknown one-operand instruction '" + opCode + "'.");
-        }
+
+class INCInstruction : public OneOperandInstruction {
+public:
+    INCInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
+    
+    void execute(CPU &cpu) override {
+        int val = cpu.getRegister(op.getRegIndex());
+        val++;
+        
+        cpu.getFlags().updateFromResult(val);
+        cpu.setRegister(op.getRegIndex(), static_cast<signed char>(val));
+    }
+};
+
+class DECInstruction : public OneOperandInstruction {
+public:
+    DECInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
+    
+    void execute(CPU &cpu) override {
+        int val = cpu.getRegister(op.getRegIndex());
+        val--;
+        
+        cpu.getFlags().updateFromResult(val);
+        cpu.setRegister(op.getRegIndex(), static_cast<signed char>(val));
+    }
+};
+
+class PUSHInstruction : public OneOperandInstruction {
+public:
+    PUSHInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
+    
+    void execute(CPU &cpu) override {
+        cpu.pushValue(cpu.getRegister(op.getRegIndex()));
+    }
+};
+
+class POPInstruction : public OneOperandInstruction {
+public:
+    POPInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
+    
+    void execute(CPU &cpu) override {
+        cpu.setRegister(op.getRegIndex(), cpu.popValue());
+    }
+};
+
+class INPUTInstruction : public OneOperandInstruction {
+public:
+    INPUTInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
+    
+    void execute(CPU &cpu) override {
+        int inputVal;
+        cout << "? ";
+        cin >> inputVal;
+        
+        cpu.setRegister(op.getRegIndex(), static_cast<signed char>(inputVal));
+        cpu.getFlags().updateFromResult(inputVal);
+    }
+};
+
+class DISPLAYInstruction : public OneOperandInstruction {
+public:
+    DISPLAYInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
+    
+    void execute(CPU &cpu) override {
+        cout << static_cast<int>(cpu.getRegister(op.getRegIndex())) << endl;
     }
 };
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 
 class TwoOperandInstruction : public Instructions {
 protected:
@@ -1038,6 +1074,7 @@ public:
     
     CustomVector<CustomVector<string>> FileOpening(string filename) {
         CustomVector<CustomVector<string>> FinalInstructions;
+        
         string Lines;
         ifstream inputFromFile(filename);
         if (inputFromFile.fail()){
@@ -1064,51 +1101,58 @@ private:
     CustomQueue<string> executionHistory;
     CPU cpu;
 
+    Instructions* createOneOperand(string opcode, int lineNum, CustomVector<string> instruction){
+        Operand operandParser;
+        if (opcode == "RESET") return new RESETInstruction(lineNum, instruction[1]);
+        Operand opnd = operandParser.readOperand(instruction[1]);
+        if (opcode == "INC") return new INCInstruction(lineNum, opnd);
+        else if (opcode == "DEC") return new DECInstruction(lineNum, opnd);
+        else if (opcode == "PUSH") return new PUSHInstruction(lineNum, opnd);
+        else if (opcode == "POP") return new POPInstruction(lineNum, opnd);
+        else if (opcode == "INPUT") return new INPUTInstruction(lineNum, opnd);
+        else if (opcode == "DISPLAY") return new DISPLAYInstruction(lineNum, opnd);
+        return nullptr;
+    }
+
+    Instructions* createTwoOperand(string opcode, int lineNum, Operand op1, Operand op2){
+        if (opcode == "MOV") return new MOVInstruction(lineNum, op1, op2);
+        else if (opcode == "ADD") return new ADDInstruction(lineNum, op1, op2);
+        else if (opcode == "SUB") return new SUBInstruction(lineNum, op1, op2);
+        else if (opcode == "MUL") return new MULInstruction(lineNum, op1, op2);
+        else if (opcode == "DIV") return new DIVInstruction(lineNum, op1, op2);
+        else if (opcode == "LOAD") return new LOADInstruction(lineNum, op1, op2);
+        else if (opcode == "STORE") return new STOREInstruction(lineNum, op1, op2);
+        else if (opcode == "ROL") return new ROLCommand(lineNum, op1, op2);
+        else if (opcode == "ROR") return new RORCommand(lineNum, op1, op2);
+        else if (opcode == "SHL") return new SHLCommand(lineNum, op1, op2);
+        else if (opcode == "SHR") return new SHRCommand(lineNum, op1, op2);
+        return nullptr;
+    }
+
     void executeInstruction(CustomVector<string> instruction, int lineNum){
         string opcode = instruction[0];
         Instructions* instr = nullptr;
         Operand operandParser;
-        Operand op1, op2;
 
-        // handle RESET and 1-operand first (before parsing operands)
-        if (opcode == "RESET"){
-            Operand dummy;
-            instr = new OneOperandInstruction(lineNum, "RESET", dummy, instruction[1]);
-        }
-        else if (opcode == "INC" || opcode == "DEC" || opcode == "PUSH" || 
-                opcode == "POP" || opcode == "INPUT" || opcode == "DISPLAY"){
-            Operand opnd = operandParser.readOperand(instruction[1]);
-            instr = new OneOperandInstruction(lineNum, opcode, opnd);
-        }
-        else {
-            // parse operands only for 2-operand instructions
+        bool isOneOperand = (opcode=="RESET"||opcode=="INC"||opcode=="DEC"||opcode=="PUSH"||opcode=="POP"||opcode=="INPUT"||opcode=="DISPLAY");
+        if (isOneOperand){
+            instr = createOneOperand(opcode, lineNum, instruction);
+        } else {
+            Operand op1, op2;
             if (instruction.size() > 1) op1 = operandParser.readOperand(instruction[1]);
             if (instruction.size() > 2) op2 = operandParser.readOperand(instruction[2]);
-
-            if (opcode == "MOV") instr = new MOVInstruction(lineNum, op1, op2);
-            else if (opcode == "ADD") instr = new ADDInstruction(lineNum, op1, op2);
-            else if (opcode == "SUB") instr = new SUBInstruction(lineNum, op1, op2);
-            else if (opcode == "MUL") instr = new MULInstruction(lineNum, op1, op2);
-            else if (opcode == "DIV") instr = new DIVInstruction(lineNum, op1, op2);
-            else if (opcode == "LOAD") instr = new LOADInstruction(lineNum, op1, op2);
-            else if (opcode == "STORE") instr = new STOREInstruction(lineNum, op1, op2);
-            else if (opcode == "ROL") instr = new ROLCommand(lineNum, op1, op2);
-            else if (opcode == "ROR") instr = new RORCommand(lineNum, op1, op2);
-            else if (opcode == "SHL") instr = new SHLCommand(lineNum, op1, op2);
-            else if (opcode == "SHR") instr = new SHRCommand(lineNum, op1, op2);
-            else {
+            instr = createTwoOperand(opcode, lineNum, op1, op2);
+            if (instr == nullptr){
                 cerr << "Unknown instruction: " << opcode << endl;
                 exit(1);
             }
         }
-
         if (instr != nullptr){
             instr->execute(cpu);
             delete instr;
         }
-        executionHistory.enqueue("Line " + to_string((lineNum) + 1) + ": executed " + opcode);
+        executionHistory.enqueue("Line " + to_string(lineNum+1) + ": executed " + opcode);
     }
-
 public:
     void load(string filename){
         program = parser.FileOpening(filename);
