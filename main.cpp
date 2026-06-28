@@ -10,7 +10,11 @@ class VMException {
     private:
         string message;
     public:
-        VMException(string msg) { message = msg; }
+        VMException(string msg) { 
+            message = msg;
+            cout << message << endl;
+            exit(1);
+        }
         virtual ~VMException() {}
         string getMessage() const { return message; }
 };
@@ -80,6 +84,17 @@ public:
         : VMException("INPUT ERROR: '" + text + "' is not a valid integer.") {}
 };
 
+class FileIOException : public VMException {
+public:
+    FileIOException(string filename) 
+        : VMException("FILE ERROR: Unable to open file: " + filename) {}
+};
+
+class InvalidOperandLogicException : public VMException {
+public:
+    InvalidOperandLogicException(string instruction) 
+        : VMException("EXECUTION ERROR: Invalid operand combination for " + instruction + " instruction.") {}
+};
 
 //data structure
 
@@ -591,6 +606,11 @@ public:
             op.setRegIndex(regNum);
             return op;
         }
+
+        if (text[0] == 'R' || text[0] == 'r') {
+            throw MalformedOperandException(text);   //looked like a register, but wasn't valid 
+        }
+
         return readImmediateOperand(text, len);
     }
 };
@@ -857,7 +877,7 @@ public:
         else if (op2.getType() == directMem){
             cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
         }
-        else{ cerr << "Invalid MOV operand!" << endl; }
+        else{ throw InvalidOperandLogicException("MOV"); }
     }
 };
 
@@ -873,7 +893,7 @@ public:
         else if (op2.getType() == Register){
             result = cpu.getRegister(dest) + cpu.getRegister(op2.getRegIndex());
         }
-        else{ cerr << "Invalid ADD operand!" << endl; }
+        else{ throw InvalidOperandLogicException("ADD"); }
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result);
     }
@@ -891,7 +911,7 @@ public:
         else if (op2.getType() == Register){
             result = cpu.getRegister(dest) - cpu.getRegister(op2.getRegIndex());
         }
-        else{ cerr << "Invalid SUB operand!" << endl; }
+        else{ throw InvalidOperandLogicException("SUB"); }
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result);
     }
@@ -909,7 +929,7 @@ public:
         else if (op2.getType() == Register){
             result = cpu.getRegister(dest) * cpu.getRegister(op2.getRegIndex());
         }
-        else{ cerr << "Invalid MUL operand!" << endl; }
+        else{ throw InvalidOperandLogicException("MUL"); }
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result);
     }
@@ -922,14 +942,14 @@ public:
         int dest = op1.getRegIndex();
         int result;
         if (op2.getType() == Immediate){
-            if (cpu.getRegister(dest) == 0){ cerr << "Division by zero!" << endl; return; }
+            if (cpu.getRegister(dest) == 0){ throw DivideByZeroException(); return; }
             result = op2.getValue() / cpu.getRegister(dest);
         }
         else if (op2.getType() == Register){
-            if (cpu.getRegister(dest) == 0){ cerr << "Division by zero!" << endl; return; }
+            if (cpu.getRegister(dest) == 0){ throw DivideByZeroException(); return; }
             result = cpu.getRegister(op2.getRegIndex()) / cpu.getRegister(dest);
         }
-        else{ cerr << "Invalid DIV operand!" << endl; return; }
+        else{ throw InvalidOperandLogicException("DIV"); return; }
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result);
     }
@@ -948,7 +968,7 @@ public:
             // LOAD R1, [20]
             cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
         }
-        else{ cerr << "Invalid LOAD operand!" << endl; }
+        else{ throw InvalidOperandLogicException("LOAD"); }
     }
 };
 
@@ -968,7 +988,7 @@ public:
             // STORE 20, R3 → store R3's value into address 20
             cpu.setMemory(op1.getValue(), cpu.getRegister(op2.getRegIndex()));
         }
-        else{ cerr << "Invalid STORE operand!" << endl; }
+        else{ throw InvalidOperandLogicException("STORE"); }
     }
 };
 
@@ -1094,7 +1114,7 @@ public:
         string Lines;
         ifstream inputFromFile(filename);
         if (inputFromFile.fail()){
-            cerr << "Error in opening the file" << endl; 
+            throw FileIOException(filename); 
             return FinalInstructions;
         } else {
             while(getline(inputFromFile, Lines)){
@@ -1159,8 +1179,7 @@ private:
             if (instruction.size() > 2) op2 = operandParser.readOperand(instruction[2]);
             instr = createTwoOperand(opcode, lineNum, op1, op2);
             if (instr == nullptr){
-                cerr << "Unknown instruction: " << opcode << endl;
-                exit(1);
+                throw UnknownInstructionException(opcode);
             }
         }
         if (instr != nullptr){
@@ -1202,7 +1221,7 @@ public:
 
     void dump(){
         ofstream outFile("output.txt");
-        if (outFile.fail()){ cerr << "Error opening output file!" << endl; return; }
+        if (outFile.fail()){ throw FileIOException("output.txt"); return; }
 
         writeLine(outFile, "#Begin#");
 
