@@ -989,7 +989,8 @@ public:
         destReg = o1.getRegIndex();
         count = o2.getValue();
         if (count < 0){
-        throw InvalidShiftCountException(count);
+            throw InvalidShiftCountException(count);
+        }
     }
 
     virtual ~ShiftInstruction(){
