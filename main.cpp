@@ -1011,7 +1011,8 @@ public:
         else{ throw InvalidOperandLogicException("STORE"); }
     }
 };
-
+// author: Chai Ming Song
+// explanatation: this class serves as the base for all shift and rotate instructions, managing the setup and unsigned data conversions
 class ShiftInstruction : public TwoOperandInstruction {
 protected:
     int destReg;
@@ -1036,7 +1037,8 @@ public:
     virtual ~ShiftInstruction(){
     }
 };
-
+// author: Chai Ming Song
+// explanatation: this class rotates the bits of the destination register to the left by the specified count, wrapping bits around
 class ROLCommand : public ShiftInstruction {
 public:
     ROLCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
@@ -1049,7 +1051,8 @@ public:
         storeResult(cpu, val);
     }
 };
-
+// author: Chai Ming Song
+// explanatation: this class rotates the bits of the destination register to the right by the specified count, wrapping bits around
 class RORCommand : public ShiftInstruction {
 public:
     RORCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
@@ -1062,7 +1065,8 @@ public:
         storeResult(cpu, val);
     }
 };
-
+// author: Chai Ming Song
+// explanatation: this class shifts the bits of the destination register to the left, filling empty spaces with zeros
 class SHLCommand : public ShiftInstruction {
 public:
     SHLCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
@@ -1079,6 +1083,7 @@ public:
     }
 };
 
+// explanatationn: this class shifts the bits of the destination register to the left, filling empty spaces with zeros
 class SHRCommand : public ShiftInstruction {
 public:
     SHRCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
