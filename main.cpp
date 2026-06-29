@@ -842,14 +842,16 @@ public:
     }
 };
 
+//base class input/output
 class IOInstruction : public OneOperandInstruction {
 public:
-    // Constructor just forwards the parameters up to the root class
+    // pass parameter to base class constructor (the one operand instruction)
     IOInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
-    
+    //destructor clean up
     virtual ~IOInstruction() {}
 };
 
+//ask user for input and store in register
 class INPUTInstruction : public IOInstruction {
 public:
     INPUTInstruction(int line, Operand o) : IOInstruction(line, o) {}
@@ -857,24 +859,29 @@ public:
     void execute(CPU &cpu) override {
         int inputVal;
         cout << "? ";
-        cin >> inputVal;
-
+        cin >> inputVal;  // Read input 
+        
+        // check for non-numeric input
         if (cin.fail()) {
-            cin.clear();
+            cin.clear();   //reset the fail state
             cin.ignore(1000, '\n');
             throw InvalidInputException("non-numeric input");
         }
         
+        // write the input value to the specified register
         cpu.setRegister(op.getRegIndex(), static_cast<signed char>(inputVal));
+        // make sure the CPU flags reflect the new value
         cpu.getFlags().updateFromResult(inputVal);
     }
 };
 
+//display the value in the register to the console
 class DISPLAYInstruction : public IOInstruction {
 public:
     DISPLAYInstruction(int line, Operand o) : IOInstruction(line, o) {}
     
     void execute(CPU &cpu) override {
+        //convert the signed char to int for proper display
         cout << static_cast<int>(cpu.getRegister(op.getRegIndex())) << endl;
     }
 };
