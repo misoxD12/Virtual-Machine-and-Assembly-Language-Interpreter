@@ -965,12 +965,12 @@ public:
         int dest = op1.getRegIndex();
         int result;
         if (op2.getType() == Immediate){
-            if (cpu.getRegister(dest) == 0){ throw DivideByZeroException(); return; }
-            result = op2.getValue() / cpu.getRegister(dest);
+            if (op2.getValue() == 0){ throw DivideByZeroException(); return; }
+            result = cpu.getRegister(dest) / op2.getValue();
         }
         else if (op2.getType() == Register){
-            if (cpu.getRegister(dest) == 0){ throw DivideByZeroException(); return; }
-            result = cpu.getRegister(op2.getRegIndex()) / cpu.getRegister(dest);
+            if (cpu.getRegister(op2.getRegIndex()) == 0){ throw DivideByZeroException(); return; }
+            result = cpu.getRegister(dest) / cpu.getRegister(op2.getRegIndex());
         }
         else{ throw InvalidOperandLogicException("DIV"); return; }
         cpu.setRegister(dest, (signed char)result);
