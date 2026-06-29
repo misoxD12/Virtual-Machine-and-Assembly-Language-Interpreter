@@ -41,37 +41,31 @@ public:
 class InvalidRegisterException : public VMException {
 public:
     InvalidRegisterException(int index) 
-        : VMException("REGISTER ERROR: Register index " + to_string(index) + " is outside valid range (0-7).") {} // Covers Table Items #1 & #2
-};
+        : VMException("REGISTER ERROR: Register index " + to_string(index) + " is outside valid range (0-7).") {}
 
 class InvalidFlagException : public VMException {
 public:
     InvalidFlagException(string flag) 
-        : VMException("FLAG ERROR: Unknown flag name '" + flag + "'. Valid flags are OF, UF, CF, ZF.") {} // Covers Table Item #3
-};
+        : VMException("FLAG ERROR: Unknown flag name '" + flag + "'. Valid flags are OF, UF, CF, ZF.") {}
 
 class MalformedOperandException : public VMException {
 public:
     MalformedOperandException(string text) 
-        : VMException("SYNTAX ERROR: Malformed or unexpected operand text: '" + text + "'.") {} // Covers Table Item #6
-};
+        : VMException("SYNTAX ERROR: Malformed or unexpected operand text: '" + text + "'.") {}
 
 class DivideByZeroException : public VMException {
 public:
-    DivideByZeroException() : VMException("MATH ERROR: Division by zero is not allowed.") {} // Covers Item #7
-};
+    DivideByZeroException() : VMException("MATH ERROR: Division by zero is not allowed.") {}
 
 class UnknownInstructionException : public VMException {
 public:
     UnknownInstructionException(string inst) 
-        : VMException("PARSER ERROR: Unknown or typo'd instruction '" + inst + "'.") {} // Covers Item #9
-};
+        : VMException("PARSER ERROR: Unknown or typo'd instruction '" + inst + "'.") {}
 
 class MultipleInstructionsException : public VMException {
 public:
     MultipleInstructionsException(int line) 
-        : VMException("SYNTAX ERROR: Multiple instructions or extra text found on line " + to_string(line) + ".") {} // Covers Item #10
-};
+        : VMException("SYNTAX ERROR: Multiple instructions or extra text found on line " + to_string(line) + ".") {}
 
 class InvalidShiftCountException : public VMException {
 public:
