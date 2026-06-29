@@ -10,16 +10,18 @@ using namespace std;
 //Writer: Lee Chung Sun
 class VMException { 
     private:
-        string message;
+        string message; // Stores the error message describing the exception.
     public:
         VMException(string msg) { 
-            message = msg;
-            cout << "Error found. Terminating program." << endl;
-            cout << message << endl;
-            exit(1);
+            message = msg; // Assigns the provided error message to the exception object.
+            cout << "Error found. Terminating program." << endl;  // Displays a general error notification.
+            cout << message << endl; // Displays the specific error message.
+            exit(1); // Stops program execution after an error occurs.
         }
-        virtual ~VMException() {}
-        string getMessage() const { return message; }
+        virtual ~VMException() {} // Virtual destructor for safe cleanup of derived exception classes.
+        string getMessage() const { 
+            return message;  // Returns the stored error message.
+        }
 };
 
 //Class: EmptyStackException
@@ -143,73 +145,74 @@ template <typename T>
 class CustomVector {
 private:
     T* data;           // Dynamic array to hold the elements.
-    int currentSize;   // Tracks the number of actual items.
-    int capacity;      // Tracks the total allocated memory size.
+    int currentSize;   // Stores the current number of elements in the vector.
+    int capacity;      // Stores the total allocated memory capacity of the vector.
 
-    // Helper function to double the array size when it gets full.
+    // Expands the dynamic array size by creating a larger array and copying existing elements.
     void expand() {
 int newCapacity = 0;
         if (capacity == 0) {
-            newCapacity = 2;
+            newCapacity = 2; // Set initial capacity if the array is empty.
         } else {
-            newCapacity = capacity * 2;
+            newCapacity = capacity * 2; // Double the current capacity when full.
         }        
-        T* newData = new T[newCapacity];
+        T* newData = new T[newCapacity]; // Allocate a new larger memory block.
         for (int i = 0; i < currentSize; i++) {
-            newData[i] = data[i];
+            newData[i] = data[i]; // Copy existing elements into the new array.
         }
-        delete[] data;
-        data = newData;
-        capacity = newCapacity;
+        delete[] data; // Release old memory to prevent memory leaks.
+        data = newData;// Update pointer to the new array.
+        capacity = newCapacity; // Update the new capacity value.
     }
 
 public:
     CustomVector() {
-        capacity = 10;
-        currentSize = 0;
-        data = new T[capacity];
+        capacity = 10; // Set default starting capacity.
+        currentSize = 0; // Initialize vector as empty.
+        data = new T[capacity]; // Allocate memory for the elements.
     }
 
     ~CustomVector() {
-        delete[] data; // Clean up memory to prevent leaks.
+        delete[] data;  // Free allocated memory when vector is destroyed.
     }
 
-    // Copy Constructor: Performs a deep copy of the underlying array
+     // Copy constructor that creates a deep copy of another CustomVector object.
     CustomVector(const CustomVector& other) {
-        capacity = other.capacity;
-        currentSize = other.currentSize;
-        data = new T[capacity];
+        capacity = other.capacity; // Copy capacity value.
+        currentSize = other.currentSize;  // Copy number of elements.
+        data = new T[capacity]; // Allocate new memory.
         for (int i = 0; i < currentSize; i++) {
-            data[i] = other.data[i];
+            data[i] = other.data[i];  // Copy each element.
         }
     }
 
-    // Assignment Operator: Cleans up existing memory before copying
+     // Assignment operator that replaces current data with a deep copy of another vector.
     CustomVector& operator=(const CustomVector& other) {
-        if (this != &other) { 
-            delete[] data; 
-            capacity = other.capacity;
-            currentSize = other.currentSize;
-            data = new T[capacity];
+        if (this != &other) {   // Prevent self-assignment.
+            delete[] data;  // Free existing memory.
+            capacity = other.capacity; // Copy capacity.
+            currentSize = other.currentSize; //Copy Size.
+            data = new T[capacity]; // Allocate new memory.
             for (int i = 0; i < currentSize; i++) {
-                data[i] = other.data[i];
+                data[i] = other.data[i]; // Copy elements.
             }
         }
-        return *this;
+        return *this;  // Return the updated object.
     }
 
+    // Adds a new element to the end of the vector.
     void push_back(const T& value) {
         if (currentSize == capacity) {
             expand(); // Resize if capacity is reached.
         }
-        data[currentSize] = value;
-        currentSize++;
+        data[currentSize] = value; // Store new element.
+        currentSize++;  // Increase element count.
     }
 
     // Removes the last element from the vector
     void pop_back() {
         if (currentSize > 0) {
-            currentSize--;
+            currentSize--; // Reduce element count.
         } else {
             throw VMException("VECTOR ERROR: Attempted to pop_back from an empty vector.");
         }
@@ -218,40 +221,42 @@ public:
     // Removes an item and shifts remaining items left to prevent gaps in memory.
     void erase(int index) {
         if (index < 0 || index >= currentSize) {
-            throw IndexOutOfBoundsException(index);
+            throw IndexOutOfBoundsException(index); // Prevent invalid index access.
         }
         // Shift elements left to fill the gap created by the removed item.
         for (int i = index; i < currentSize - 1; i++) {
-            data[i] = data[i + 1];
+            data[i] = data[i + 1]; // Shift elements to fill removed position.
         }
         currentSize--;
     }
 
+    // Returns an element at the specified index with bounds checking.
     T get(int index) const {
         if (index < 0 || index >= currentSize) {
-            throw IndexOutOfBoundsException(index);
+            throw IndexOutOfBoundsException(index);  // Prevent invalid access.
         }
-        return data[index];
+        return data[index]; // Return requested element.
     }
 
     // Safely gets an item with bounds checking
     T at(int index) const {
         if (index < 0 || index >= currentSize) {
-            throw IndexOutOfBoundsException(index);
-        }
-        return data[index];
+            throw IndexOutOfBoundsException(index); // Throw exception for invalid index.
+        } 
+        return data[index]; // Return element value.
     }
 
     // Overloaded [] operator for standard array-like access (Read/Write)
     T &operator[](int index) {
-        return data[index];
+        return data[index]; // Return reference to element.
     }
 
     // Overloaded [] operator for standard array-like access (Read-Only)
     const T &operator[](int index) const {
-        return data[index];
+        return data[index]; // Return constant reference to element.
     }
 
+    // Returns the current number of stored elements.
     int size() const { return currentSize; }
 };
 
@@ -288,14 +293,14 @@ private:
             // Default to 0 if the array has no capacity yet
             safeIndex = 0;
         }            
-        newData[i] = data[safeIndex];
+        newData[i] = data[safeIndex]; // Copy elements to the new array in order.
         }
         
-        delete[] data;
-        data = newData;
+        delete[] data; // Free the old memory to prevent leaks.
+        data = newData; // Update the data pointer to the new array.
         frontIndex = 0;
         rearIndex = count - 1;
-        capacity = newCapacity;
+        capacity = newCapacity; // Update the capacity to the new size.
     }
 
 public:
@@ -311,27 +316,27 @@ public:
 
     // Copy Constructor
     CustomQueue(const CustomQueue& other) {
-        capacity = other.capacity;
-        frontIndex = other.frontIndex;
-        rearIndex = other.rearIndex;
-        count = other.count;
-        data = new T[capacity];
+        capacity = other.capacity; // Copy the capacity from the other queue
+        frontIndex = other.frontIndex; // Copy the front index from the other queue
+        rearIndex = other.rearIndex; // Copy the rear index from the other queue
+        count = other.count; // Copy the count of elements from the other queue
+        data = new T[capacity]; // Allocate new memory for the data array
         for (int i = 0; i < capacity; i++) {
-            data[i] = other.data[i];
+            data[i] = other.data[i]; // Copy each element from the other queue's data array
         }
     }
 
     // Assignment Operator
     CustomQueue& operator=(const CustomQueue& other) {
         if (this != &other) {
-            delete[] data;
-            capacity = other.capacity;
-            frontIndex = other.frontIndex;
-            rearIndex = other.rearIndex;
-            count = other.count;
-            data = new T[capacity];
+            delete[] data; // Free existing memory to prevent leaks
+            capacity = other.capacity; 
+            frontIndex = other.frontIndex; 
+            rearIndex = other.rearIndex; 
+            count = other.count; 
+            data = new T[capacity]; 
             for (int i = 0; i < capacity; i++) {
-                data[i] = other.data[i];
+                data[i] = other.data[i]; 
             }
         }
         return *this;
@@ -342,8 +347,8 @@ public:
             expand();
         }
         // Modulo arithmetic wraps the rear index back to 0 if it reaches the end.
-        rearIndex = (rearIndex + 1) % capacity;
-        data[rearIndex] = value;
+        rearIndex = (rearIndex + 1) % capacity; // Move rear index forward in a circular manner
+        data[rearIndex] = value; // Store the new value at the rear index
         count++;
     }
 
@@ -353,7 +358,7 @@ public:
         }
         T value = data[frontIndex];
         // Modulo arithmetic wraps the front index back to 0 if it reaches the end.
-        frontIndex = (frontIndex + 1) % capacity;
+        frontIndex = (frontIndex + 1) % capacity; // Move front index forward in a circular manner
         count--;
         return value;
     }
@@ -379,30 +384,31 @@ private:
         }  
         T* newData = new T[capacity];
         for (int i = 0; i < currentSize; i++) {
-            newData[i] = data[i];
+            newData[i] = data[i]; // Copy existing elements into the new array.
         }
-        delete[] data;
-        data = newData;
+        delete[] data; 
+        data = newData; // Update pointer to the new array.
     }
 
 public:
+    // Constructor initializes the stack with a default capacity of 8 elements.
     CustomStack() {
         capacity = 8; // Virtual machine stack is 8 elements.
         currentSize = 0;
-        data = new T[capacity];
+        data = new T[capacity]; // Allocate memory for the stack elements.
     }
 
     ~CustomStack() { delete[] data; }
-
+    // Copy constructor for deep copying another CustomStack object.
     CustomStack(const CustomStack& other) {
-        capacity = other.capacity;
+        capacity = other.capacity; 
         currentSize = other.currentSize;
         data = new T[capacity];
         for (int i = 0; i < currentSize; i++) {
             data[i] = other.data[i];
         }
     }
-
+    // Assignment operator for deep copying another CustomStack object.
     CustomStack& operator=(const CustomStack& other) {
         if (this != &other) {
             delete[] data;
@@ -415,7 +421,7 @@ public:
         }
         return *this;
     }
-
+    // Adds a new element to the top of the stack, expanding if necessary.
     void push(const T& value) {
         if (currentSize == capacity) {
             expand();
@@ -424,7 +430,7 @@ public:
         data[currentSize] = value;
         currentSize++;
     }
-
+    // Removes and returns the top element of the stack, throwing an exception if the stack is empty.
     T pop() {
         if (isEmpty()) {
             // Assignment constraint: Crash/stop safely on empty pop.
@@ -433,9 +439,9 @@ public:
         currentSize--;
         return data[currentSize];
     }
-
+    // Returns the current number of elements in the stack.
     bool isEmpty() const { return currentSize == 0; }
-
+    // Returns true if the stack is full, false otherwise.
     bool isFull() const { return currentSize == capacity; }
 };
 
@@ -690,15 +696,15 @@ private:
     signed char data[64];
 
 public:
-       
+    // Constructor initializes all memory locations to zero.
     Memory(){
         for (int i = 0; i < 64; ++i) {
             data[i] = 0;
         }
     }
-    
+    // Destructor is virtual to allow for proper cleanup in derived classes.
     virtual ~Memory() {}
-
+    // Reads a byte from the specified memory address, throwing an exception if the address is out of bounds.
     signed char readMemory(int address) const{
         if (address >= 0 && address < 64) {
             return data[address];
@@ -707,7 +713,7 @@ public:
         }
     }
 
-       
+    // Writes a byte to the specified memory address, throwing an exception if the address is out of bounds.
     void writeMemory(int address, signed char value){
         if (address >= 0 && address < 64) {
             this->data[address] = value;
@@ -906,7 +912,7 @@ public:
 class INPUTInstruction : public IOInstruction {
 public:
     INPUTInstruction(int line, Operand o) : IOInstruction(line, o) {}
-    
+    // Execute method reads an integer from the user, validates it, and stores it in the specified register.
     void execute(CPU &cpu) override {
         int inputVal;
         cout << "? ";
@@ -915,7 +921,7 @@ public:
         // check for non-numeric input
         if (cin.fail()) {
             cin.clear();   //reset the fail state
-            cin.ignore(1000, '\n');
+            cin.ignore(1000, '\n'); //discard invalid input
             throw InvalidInputException("non-numeric input");
         }
         
