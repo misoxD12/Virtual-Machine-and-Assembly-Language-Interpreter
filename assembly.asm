@@ -1,0 +1,2 @@
+MOV R0, 15 MOV R1, 20
+ADD R0, R7		
