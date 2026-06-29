@@ -858,7 +858,7 @@ public:
 // Writer: [Harsimran]
 class TwoOperandInstruction : public Instructions {
 protected:
-    Operand op1, op2;
+    Operand op1, op2; // op1 = destination, op2 = source
 public:
     TwoOperandInstruction(int line, Operand o1, Operand o2) : Instructions(line){
         op1 = o1;
@@ -882,17 +882,21 @@ class MOVInstruction : public TwoOperandInstruction {
 public:
     MOVInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
     void execute(CPU &cpu){
-        int dest = op1.getRegIndex();
+        int dest = op1.getRegIndex(); // get destination register index
         if (op2.getType() == Immediate){
+            // MOV R0, 10 -use for the immediate value directly
             cpu.setRegister(dest, (signed char)op2.getValue());
         }
         else if (op2.getType() == Register){
+            // MOV R0, R1 - copy the value from one register to another one  
             cpu.setRegister(dest, cpu.getRegister(op2.getRegIndex()));
         }
         else if (op2.getType() == indirectMem){
+            // MOV R0, [R1] -Register 1  value as the  memory address
             cpu.setRegister(dest, cpu.getMemory(cpu.getRegister(op2.getRegIndex())));
         }
         else if (op2.getType() == directMem){
+            // MOV R0, [20] - read directly from memory address 20
             cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
         }
         else{ throw InvalidOperandLogicException("MOV"); }
@@ -906,7 +910,7 @@ public:
     ADDInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
     void execute(CPU &cpu){
         int dest = op1.getRegIndex();
-        int result;
+        int result; // use int to detect overflow before casting
         if (op2.getType() == Immediate){
             result = cpu.getRegister(dest) + op2.getValue();
         }
@@ -914,8 +918,8 @@ public:
             result = cpu.getRegister(dest) + cpu.getRegister(op2.getRegIndex());
         }
         else{ throw InvalidOperandLogicException("ADD"); }
-        cpu.setRegister(dest, (signed char)result);
-        cpu.getFlags().updateFromResult(result);
+        cpu.setRegister(dest, (signed char)result); // cast back to signed char
+        cpu.getFlags().updateFromResult(result);// update the flaggs
     }
 };
 
@@ -936,7 +940,7 @@ public:
         }
         else{ throw InvalidOperandLogicException("SUB"); }
         cpu.setRegister(dest, (signed char)result);
-        cpu.getFlags().updateFromResult(result);
+        cpu.getFlags().updateFromResult(result); // update the flags
     }
 };
 // Class :MULInstruction
@@ -957,7 +961,7 @@ public:
         }
         else{ throw InvalidOperandLogicException("MUL"); }
         cpu.setRegister(dest, (signed char)result);
-        cpu.getFlags().updateFromResult(result);
+        cpu.getFlags().updateFromResult(result); // update the flags
     }
 };
 // Class: DIVInstruction
@@ -970,7 +974,7 @@ public:
         int dest = op1.getRegIndex();
         int result;
         if (op2.getType() == Immediate){
-            if (op2.getValue() == 0){ throw DivideByZeroException(); return; }
+            if (op2.getValue() == 0){ throw DivideByZeroException(); return; } //  check if got divide by zero 
             result = cpu.getRegister(dest) / op2.getValue();
         }
         else if (op2.getType() == Register){
@@ -991,9 +995,11 @@ public:
     void execute(CPU &cpu){
         int dest = op1.getRegIndex();
         if (op2.getType() == indirectMem){
+            // LOAD R1, [R2] - to get the memery address from Register 2 
             cpu.setRegister(dest, cpu.getMemory(cpu.getRegister(op2.getRegIndex())));
         }
         else if (op2.getType() == directMem){
+            //LOAD R1, [20] - read directly from memory address 20
             cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
         }
         else{ throw InvalidOperandLogicException("LOAD"); }
@@ -1008,12 +1014,15 @@ public:
     STOREInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
     void execute(CPU &cpu){
         if (op1.getType() == Register && op2.getType() == Immediate){
+            // STORE R1, 43 - store the register 1 value at memory address 43
             cpu.setMemory(op2.getValue(), cpu.getRegister(op1.getRegIndex()));
         }
         else if (op1.getType() == Register && op2.getType() == indirectMem){
+            //STORE R1, [R2] - store registrer one value at address stored in register 2 
             cpu.setMemory(cpu.getRegister(op2.getRegIndex()), cpu.getRegister(op1.getRegIndex()));
         }
         else if (op1.getType() == Immediate && op2.getType() == Register){
+            // STORE 20, R3 - store register 3  value at address 20
             cpu.setMemory(op1.getValue(), cpu.getRegister(op2.getRegIndex()));
         }
         else{ throw InvalidOperandLogicException("STORE"); }
