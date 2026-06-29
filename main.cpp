@@ -762,8 +762,6 @@ public:
     virtual ~OneOperandInstruction() {}
 };
 
-// author: Harsimran
-// explanation: this class groups the  I/O instructions (INPUT and DISPLAY)
 class IOInstruction : public OneOperandInstruction {
 public:
     IOInstruction(int line, Operand o) : OneOperandInstruction(line, o){}
@@ -855,9 +853,9 @@ public:
         cout << static_cast<int>(cpu.getRegister(op.getRegIndex())) << endl;
     }
 };
-
-// author: Harsimran
-// explanatationn: thisclass for all instructions that take 2 operands
+//Class: TwoOperandInstruction 
+// Purpose: thisclass for all instructions that take 2 operands
+// Writer: [Harsimran]
 class TwoOperandInstruction : public Instructions {
 protected:
     Operand op1, op2;
@@ -868,16 +866,18 @@ public:
     }
     virtual ~TwoOperandInstruction(){}
 };
-// author: Harsimran
-// explanatationn: this class groups all arithmetic instructions  which is the ADD/SUB/MUL/DIV
+// Class: ArithmeticInstruction
+// Puropuse: this class groups all arithmetic instructions  which is the ADD/SUB/MUL/DIV
+// Writer: [Harsimran]
 class ArithmeticInstruction : public TwoOperandInstruction {
 public:
     ArithmeticInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
     virtual ~ArithmeticInstruction(){}
 };
+// class: MOVInstruction
+// Purpose: this class copy the value into destination register. Supports 4 modes which are immediate, register, indirect, direct
+// Writer: [Harsimran]
 
-// author: Harsimran
-// explanatationn: this class copy the value into destination register. Supports 4 modes which are immediate, register, indirect, direct
 class MOVInstruction : public TwoOperandInstruction {
 public:
     MOVInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
@@ -898,8 +898,9 @@ public:
         else{ throw InvalidOperandLogicException("MOV"); }
     }
 };
-// author: Harsimran
-// explanatationn: this class add op2 to op1, stores in  op1 updates flags after operation
+// Class: ADDInstruction
+// Purpose: this class add op2 to op1, stores in  op1 updates flags after operation
+// Writer: [Harsimran]
 class ADDInstruction : public ArithmeticInstruction {
 public:
     ADDInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
@@ -918,8 +919,9 @@ public:
     }
 };
 
-// author: Harsimran
-// explanatationn: this class subtract op2 to op1, stores in op1 updates flags after operation
+// Class: SUBInstruction 
+// Purpose: this class subtract op2 to op1, stores in op1 updates flags after operation
+// Writer: [Harsimran]
 class SUBInstruction : public ArithmeticInstruction {
 public:
     SUBInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
@@ -937,8 +939,10 @@ public:
         cpu.getFlags().updateFromResult(result);
     }
 };
-// author: Harsimran
-// explanatationn: this class multiply op2 to op1, stores in op1 updates flags after operation
+// Class :MULInstruction
+// Purpose: this class multiply op2 to op1, stores in op1 updates flags after operation
+// Writer: [Harsimran]
+
 class MULInstruction : public ArithmeticInstruction {
 public:
     MULInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
@@ -956,8 +960,9 @@ public:
         cpu.getFlags().updateFromResult(result);
     }
 };
-// author: Harsimran
-// explanatationn: this class subtract op2 to op1, stores in op1 updates flags after operation
+// Class: DIVInstruction
+// Purpose: this class subtract op2 to op1, stores in op1 updates flags after operation
+// Writer: [Harsimran]
 class DIVInstruction : public ArithmeticInstruction {
 public:
     DIVInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
@@ -977,8 +982,9 @@ public:
         cpu.getFlags().updateFromResult(result);
     }
 };
-// author: Harsimran
-// explanatationn: this class loads value from memory into destination register and can use direct and indirect mode
+// Class : LOADInstruction
+// Purpose: this class loads value from memory into destination register and can use direct and indirect mode
+// Writer: [Harsimran]
 class LOADInstruction : public TwoOperandInstruction {
 public:
     LOADInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
@@ -993,8 +999,10 @@ public:
         else{ throw InvalidOperandLogicException("LOAD"); }
     }
 };
-// author: Harsimran
-// explanatationn: this class stores register value into memory and support 3 modes
+//Class: STOREInstruction 
+// Purpose: this class stores register value into memory and support 3 modes
+// Writer: [Harsimran]
+
 class STOREInstruction : public TwoOperandInstruction {
 public:
     STOREInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
@@ -1011,8 +1019,7 @@ public:
         else{ throw InvalidOperandLogicException("STORE"); }
     }
 };
-// author: Chai Ming Song
-// explanatation: this class serves as the base for all shift and rotate instructions, managing the setup and unsigned data conversions
+
 class ShiftInstruction : public TwoOperandInstruction {
 protected:
     int destReg;
@@ -1037,8 +1044,7 @@ public:
     virtual ~ShiftInstruction(){
     }
 };
-// author: Chai Ming Song
-// explanatation: this class rotates the bits of the destination register to the left by the specified count, wrapping bits around
+
 class ROLCommand : public ShiftInstruction {
 public:
     ROLCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
@@ -1051,8 +1057,7 @@ public:
         storeResult(cpu, val);
     }
 };
-// author: Chai Ming Song
-// explanatation: this class rotates the bits of the destination register to the right by the specified count, wrapping bits around
+
 class RORCommand : public ShiftInstruction {
 public:
     RORCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
@@ -1065,8 +1070,7 @@ public:
         storeResult(cpu, val);
     }
 };
-// author: Chai Ming Song
-// explanatation: this class shifts the bits of the destination register to the left, filling empty spaces with zeros
+
 class SHLCommand : public ShiftInstruction {
 public:
     SHLCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
@@ -1083,7 +1087,6 @@ public:
     }
 };
 
-// explanatationn: this class shifts the bits of the destination register to the left, filling empty spaces with zeros
 class SHRCommand : public ShiftInstruction {
 public:
     SHRCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
@@ -1101,9 +1104,9 @@ public:
 };
 
 
-
-// author: Harsimran
-// explanation: this class cleans the raw lines from .asm file before parsing
+// Class: FilterFromFile
+// Purpose: this class cleans the raw lines from .asm file before parsing
+// Writer: [Harsimran]
 class FilterFromFile {
 public:
     // Replaces all commas in a line with spaces
@@ -1132,9 +1135,9 @@ public:
     }
 };
 
-
-// author: Harsimran
-// explanation: Read and make the .asm file content into tokens
+// Class: Parser 
+// Purpose: Read and make the .asm file content into tokens
+// Writer: [Harsimran]
 class Parser {
 private:
     FilterFromFile Filter;
@@ -1178,8 +1181,10 @@ public:
     }
 };
 
-// author: Harsimran
-// explanation:this class executes the .asm program and dumps the VM state 
+//Class : Runner 
+// Purpouse: this class executes the .asm program and dumps the VM state
+// Writer: [Harsimran]
+
 class Runner {
 private:
     Parser parser;
