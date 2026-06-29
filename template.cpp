@@ -372,11 +372,185 @@ public:
 };
 
 //oneoperand
-//twooperand
+//Class: TwoOperandInstruction 
+// Purpose: thisclass for all instructions that take 2 operands
+// Writer: Harsimran
+class TwoOperandInstruction : public Instructions {
+protected:
+    Operand op1, op2; // op1 = destination, op2 = source
+public:
+    TwoOperandInstruction(int line, Operand o1, Operand o2) : Instructions(line){
+        op1 = o1;
+        op2 = o2;
+    }
+    virtual ~TwoOperandInstruction(){}
+};
+// Class: ArithmeticInstruction
+// Puropuse: this class groups all arithmetic instructions  which is the ADD/SUB/MUL/DIV
+// Writer: Harsimran
+class ArithmeticInstruction : public TwoOperandInstruction {
+public:
+    ArithmeticInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
+    virtual ~ArithmeticInstruction(){}
+};
+// class: MOVInstruction
+// Purpose: this class copy the value into destination register. Supports 4 modes which are immediate, register, indirect, direct
+// Writer: Harsimran
+
+class MOVInstruction : public TwoOperandInstruction {
+public:
+    MOVInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        int dest = op1.getRegIndex(); // get destination register index
+        if (op2.getType() == Immediate){
+            // MOV R0, 10 -use for the immediate value directly
+            cpu.setRegister(dest, (signed char)op2.getValue());
+        }
+        else if (op2.getType() == Register){
+            // MOV R0, R1 - copy the value from one register to another one  
+            cpu.setRegister(dest, cpu.getRegister(op2.getRegIndex()));
+        }
+        else if (op2.getType() == indirectMem){
+            // MOV R0, [R1] -Register 1  value as the  memory address
+            cpu.setRegister(dest, cpu.getMemory(cpu.getRegister(op2.getRegIndex())));
+        }
+        else if (op2.getType() == directMem){
+            // MOV R0, [20] - read directly from memory address 20
+            cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
+        }
+        else{ throw InvalidOperandLogicException("MOV"); }
+    }
+};
+// Class: ADDInstruction
+// Purpose: this class add op2 to op1, stores in  op1 updates flags after operation
+// Writer: Harsimran
+class ADDInstruction : public ArithmeticInstruction {
+public:
+    ADDInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        int dest = op1.getRegIndex();
+        int result; // use int to detect overflow before casting
+        if (op2.getType() == Immediate){
+            result = cpu.getRegister(dest) + op2.getValue();
+        }
+        else if (op2.getType() == Register){
+            result = cpu.getRegister(dest) + cpu.getRegister(op2.getRegIndex());
+        }
+        else{ throw InvalidOperandLogicException("ADD"); }
+        cpu.setRegister(dest, (signed char)result); // cast back to signed char
+        cpu.getFlags().updateFromResult(result);// update the flaggs
+    }
+};
+
+// Class: SUBInstruction 
+// Purpose: this class subtract op2 to op1, stores in op1 updates flags after operation
+// Writer: Harsimran
+class SUBInstruction : public ArithmeticInstruction {
+public:
+    SUBInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        int dest = op1.getRegIndex();
+        int result;
+        if (op2.getType() == Immediate){
+            result = cpu.getRegister(dest) - op2.getValue();
+        }
+        else if (op2.getType() == Register){
+            result = cpu.getRegister(dest) - cpu.getRegister(op2.getRegIndex());
+        }
+        else{ throw InvalidOperandLogicException("SUB"); }
+        cpu.setRegister(dest, (signed char)result);
+        cpu.getFlags().updateFromResult(result); // update the flags
+    }
+};
+// Class :MULInstruction
+// Purpose: this class multiply op2 to op1, stores in op1 updates flags after operation
+// Writer: Harsimran
+
+class MULInstruction : public ArithmeticInstruction {
+public:
+    MULInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        int dest = op1.getRegIndex();
+        int result;
+        if (op2.getType() == Immediate){
+            result = cpu.getRegister(dest) * op2.getValue();
+        }
+        else if (op2.getType() == Register){
+            result = cpu.getRegister(dest) * cpu.getRegister(op2.getRegIndex());
+        }
+        else{ throw InvalidOperandLogicException("MUL"); }
+        cpu.setRegister(dest, (signed char)result);
+        cpu.getFlags().updateFromResult(result); // update the flags
+    }
+};
+// Class: DIVInstruction
+// Purpose: this class subtract op2 to op1, stores in op1 updates flags after operation
+// Writer: Harsimran
+class DIVInstruction : public ArithmeticInstruction {
+public:
+    DIVInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        int dest = op1.getRegIndex();
+        int result;
+        if (op2.getType() == Immediate){
+            if (op2.getValue() == 0){ throw DivideByZeroException(); return; } //  check if got divide by zero 
+            result = cpu.getRegister(dest) / op2.getValue();
+        }
+        else if (op2.getType() == Register){
+            if (cpu.getRegister(op2.getRegIndex()) == 0){ throw DivideByZeroException(); return; }
+            result = cpu.getRegister(dest) / cpu.getRegister(op2.getRegIndex());
+        }
+        else{ throw InvalidOperandLogicException("DIV"); return; }
+        cpu.setRegister(dest, (signed char)result);
+        cpu.getFlags().updateFromResult(result);
+    }
+};
+// Class : LOADInstruction
+// Purpose: this class loads value from memory into destination register and can use direct and indirect mode
+// Writer: Harsimran
+class LOADInstruction : public TwoOperandInstruction {
+public:
+    LOADInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        int dest = op1.getRegIndex();
+        if (op2.getType() == indirectMem){
+            // LOAD R1, [R2] - to get the memery address from Register 2 
+            cpu.setRegister(dest, cpu.getMemory(cpu.getRegister(op2.getRegIndex())));
+        }
+        else if (op2.getType() == directMem){
+            //LOAD R1, [20] - read directly from memory address 20
+            cpu.setRegister(dest, cpu.getMemory(op2.getValue()));
+        }
+        else{ throw InvalidOperandLogicException("LOAD"); }
+    }
+};
+//Class: STOREInstruction 
+// Purpose: this class stores register value into memory and support 3 modes
+// Writer: Harsimran
+
+class STOREInstruction : public TwoOperandInstruction {
+public:
+    STOREInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
+    void execute(CPU &cpu){
+        if (op1.getType() == Register && op2.getType() == Immediate){
+            // STORE R1, 43 - store the register 1 value at memory address 43
+            cpu.setMemory(op2.getValue(), cpu.getRegister(op1.getRegIndex()));
+        }
+        else if (op1.getType() == Register && op2.getType() == indirectMem){
+            //STORE R1, [R2] - store registrer one value at address stored in register 2 
+            cpu.setMemory(cpu.getRegister(op2.getRegIndex()), cpu.getRegister(op1.getRegIndex()));
+        }
+        else if (op1.getType() == Immediate && op2.getType() == Register){
+            // STORE 20, R3 - store register 3  value at address 20
+            cpu.setMemory(op1.getValue(), cpu.getRegister(op2.getRegIndex()));
+        }
+        else{ throw InvalidOperandLogicException("STORE"); }
+    }
+};
 
 //Class: ShiftInstruction
 //Purpose: Shared base for ROL, ROR, SHL, SHR， managing the setup and unsigned data conversions.
-//Writer: [Your Name]
+//Writer: Chai Ming Song
 class ShiftInstruction : public TwoOperandInstruction {
 protected:
     int destReg; //destination register
@@ -406,7 +580,7 @@ public:
 
 //Class: ROLCommand
 //Purpose: This class rotates the bits of the destination register to the left by the specified count
-//Writer: [Your Name]
+//Writer: Chai Ming Song
 class ROLCommand : public ShiftInstruction {
 public:
     ROLCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {//pass operands up to the shared base
@@ -422,7 +596,7 @@ public:
 
 //Class: RORCommand
 //Purpose: This class rotates the bits of the destination register to the right by the specified count.
-//Author: [Your Name]
+//Writer: Chai Ming Song
 class RORCommand : public ShiftInstruction {
 public:
     RORCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
@@ -438,7 +612,7 @@ public:
 
 //Class: SHLCommand
 //Purpose: This class shifts the bits of the destination register to the left by the specified count, filling with zeros.
-//Author: [Your Name]
+//Writer: Chai Ming Song
 class SHLCommand : public ShiftInstruction {
 public:
     SHLCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
@@ -457,7 +631,7 @@ public:
 
 //Class: SHRCommand
 //Purpose: This class shifts the bits of the destination register to the right by the specified count, filling with zeros.
-//Author: [Your Name]
+//Writer: Chai Ming Song
 class SHRCommand : public ShiftInstruction {
 public:
     SHRCommand(int line, Operand o1, Operand o2) : ShiftInstruction(line, o1, o2) {
@@ -473,3 +647,236 @@ public:
         storeResult(cpu, val);
     }
 };
+
+// Class: FilterFromFile
+// Purpose: this class cleans the raw lines from .asm file before parsing
+// Writer: Harsimran
+class FilterFromFile {
+public:
+    // Replaces all commas in a line with spaces
+    string RemoveComma(string line){
+        for (int i=0; i<line.length(); i++){
+            if (line[i] == ',') {line[i] = ' ';}
+        } return line;
+    }
+
+    // Split the cleaned line into individual words using whitespace as delimiter
+    CustomVector<string> split(string FilteredLine) {
+        CustomVector<string> words;
+        stringstream ss(FilteredLine);
+        string currentWord;
+        while (ss >> currentWord) {
+            words.push_back(currentWord);
+        }
+        return words;
+    }
+    //Convers all the charcters into upper case so more consistant
+    string toUpperCase(string line){
+        for (int i = 0; i < line.length(); i++){
+            line[i] = toupper(line[i]);
+        }
+        return line;
+    }
+};
+
+// Class: Parser 
+// Purpose: Read and make the .asm file content into tokens
+// Writer: Harsimran
+class Parser {
+private:
+    FilterFromFile Filter;
+    // checks if a token is a valid instruction opcode
+    bool isOpcode(string token){
+        string opcodes[] = {"MOV","ADD","SUB","MUL","DIV","INC","DEC","ROL","ROR","SHL","SHR","LOAD","STORE","RESET","PUSH","POP","INPUT","DISPLAY"};
+        for (int i = 0; i < 18; i++){
+            if (token == opcodes[i]) return true;
+        }
+        return false;
+    }
+public:
+    Parser(){};
+    // opens .asm file and then, cleans each line and then, split into token and return in 2d vecto 
+    CustomVector<CustomVector<string>> FileOpening(string filename) {
+        CustomVector<CustomVector<string>> FinalInstructions;
+        string Lines;
+        int lineNum = 0; 
+        ifstream inputFromFile(filename);
+        if (inputFromFile.fail()){
+            throw FileIOException(filename); 
+        }
+        while(getline(inputFromFile, Lines)){
+            lineNum++;
+            string cleanLine = Filter.toUpperCase(Filter.RemoveComma(Lines));
+            CustomVector<string> ExtractedWords = Filter.split(cleanLine);
+            
+            if (ExtractedWords.size() > 0){ // check if more than one instruction on same line, cuz according to pdf must exit 
+                for (int i = 1; i < ExtractedWords.size(); i++){
+                    if (isOpcode(ExtractedWords[i])){
+                        throw MultipleInstructionsException(lineNum); 
+
+                    }
+                }
+                FinalInstructions.push_back(ExtractedWords);
+            }
+        }
+
+        inputFromFile.close();
+        return FinalInstructions;
+    }
+};
+
+//Class : Runner 
+// Purpouse: this class executes the .asm program and dumps the VM state
+// Writer: Harsimran
+class Runner {
+private:
+    Parser parser;
+    CustomQueue<CustomVector<string>> program; /// queue stores instructions in order
+    CPU cpu;
+    // create the 1 operand instruction object based on opcode that we extract from the file
+    Instructions* createOneOperand(string opcode, int lineNum, CustomVector<string> instruction){
+        Operand operandParser;
+        if (opcode == "RESET") return new RESETInstruction(lineNum, instruction[1]);
+        Operand opnd = operandParser.readOperand(instruction[1]);
+        if (opcode == "INC") return new INCInstruction(lineNum, opnd);
+        else if (opcode == "DEC") return new DECInstruction(lineNum, opnd);
+        else if (opcode == "PUSH") return new PUSHInstruction(lineNum, opnd);
+        else if (opcode == "POP") return new POPInstruction(lineNum, opnd);
+        else if (opcode == "INPUT") return new INPUTInstruction(lineNum, opnd);
+        else if (opcode == "DISPLAY") return new DISPLAYInstruction(lineNum, opnd);
+        return nullptr;
+    }
+    // create the 2 operand instruction object based on opcode that we extract from the file
+    Instructions* createTwoOperand(string opcode, int lineNum, Operand op1, Operand op2){
+        if (opcode == "MOV") return new MOVInstruction(lineNum, op1, op2);
+        else if (opcode == "ADD") return new ADDInstruction(lineNum, op1, op2);
+        else if (opcode == "SUB") return new SUBInstruction(lineNum, op1, op2);
+        else if (opcode == "MUL") return new MULInstruction(lineNum, op1, op2);
+        else if (opcode == "DIV") return new DIVInstruction(lineNum, op1, op2);
+        else if (opcode == "LOAD") return new LOADInstruction(lineNum, op1, op2);
+        else if (opcode == "STORE") return new STOREInstruction(lineNum, op1, op2);
+        else if (opcode == "ROL") return new ROLCommand(lineNum, op1, op2);
+        else if (opcode == "ROR") return new RORCommand(lineNum, op1, op2);
+        else if (opcode == "SHL") return new SHLCommand(lineNum, op1, op2);
+        else if (opcode == "SHR") return new SHRCommand(lineNum, op1, op2);
+        return nullptr;
+    }
+    // runs the opcode and executes the correct instruction 
+    void executeInstruction(CustomVector<string> instruction, int lineNum){
+        string opcode = instruction[0];
+        Instructions* instr = nullptr;
+        Operand operandParser;
+        Operand op1, op2;  
+
+        bool isOneOperand = false;
+        if (opcode == "RESET" || opcode == "INC" || opcode == "DEC" || opcode == "PUSH" || opcode == "POP" || opcode == "INPUT" ||opcode == "DISPLAY"){// check if its a 1 operand instruction
+            isOneOperand = true;
+        }
+
+        if (isOneOperand){
+            instr = createOneOperand(opcode, lineNum, instruction);
+        } else {
+
+
+            // if not 1 operand then should be 2, and 2 operand needs at least 3 tokens which is the [opcode + 2 operands] 
+            if (instruction.size() < 3){
+                throw MalformedOperandException("missing operand(s) for " + opcode);
+            }
+            op1 = operandParser.readOperand(instruction[1]);
+            op2 = operandParser.readOperand(instruction[2]);
+            instr = createTwoOperand(opcode, lineNum, op1, op2);
+            if (instr == nullptr){
+                throw UnknownInstructionException(opcode);
+            }
+        }
+        if (instr != nullptr){
+            instr->execute(cpu);
+            delete instr;
+        }
+    }
+public:
+
+    void load(string filename){// load the file into program queue
+        CustomVector<CustomVector<string>> parsed = parser.FileOpening(filename);
+        for (int i = 0; i < parsed.size(); i++){
+            program.enqueue(parsed[i]);
+        }
+    }
+
+    void run(){
+        int lineNum = 0;
+        while (!program.isEmpty()){
+            executeInstruction(program.dequeue(), lineNum); //executes the instructions in the queue one by one 
+            cpu.incrementPC();
+            lineNum++;
+        }
+    }
+    // write text to both terminal and output file
+    void writeLineToOutputFile(ofstream &ToFile, string text){
+        cout << text << endl;
+        ToFile << text << endl;
+    }
+
+    // formats the intiger value to  string based on width
+    string formatVal(int val, int width){
+        string digits = to_string(abs(val));
+        while((int)digits.length() < width) digits = "0" + digits;
+        if (val < 0){
+            return "-" + digits;
+        } else {
+            return digits;
+        }
+    }
+
+    void dump(){
+        // prints final  state of our VM to terminal and output.txt as the output file 
+        ofstream ToFile("output.txt");
+        if (ToFile.fail()){ throw FileIOException("output.txt"); return; }
+
+        writeLineToOutputFile(ToFile, "#Begin#");
+
+        string regLine = "#Registers#"; //print all 8 registers
+        for(int i = 0; i < 8; i++){
+            int val = (int)cpu.getRegister(i);
+            if (val < 0){
+                regLine += formatVal(val, 3) + "#";
+            } else {
+                regLine += formatVal(val, 4) + "#";
+            }
+        }
+        writeLineToOutputFile(ToFile, regLine);
+
+        string flagLine = "#Flags#OF#" + to_string(cpu.getFlags().getOverflow()) +///print 4 flags
+                        "#UF#" + to_string(cpu.getFlags().getUnderflow()) +
+                        "#CF#" + to_string(cpu.getFlags().getCarry()) +
+                        "#ZF#" + to_string(cpu.getFlags().getZero()) + "#";
+        writeLineToOutputFile(ToFile, flagLine);
+
+        writeLineToOutputFile(ToFile, "#PC#" + formatVal(cpu.getPC(), 4) + "#"); // print program counter PC 
+
+        writeLineToOutputFile(ToFile, "#Memory#"); // print the 64 memory as 8 rows of 8 like in pdf one 
+        for(int i = 0; i < 8; i++){
+            string memLine = "#";
+            for(int j = 0; j < 8; j++){
+                int val = (int)cpu.getMemory(i*8+j);
+                if (val < 0){
+                    memLine += formatVal(val, 3) + "#";
+                } else {
+                    memLine += formatVal(val, 4) + "#";
+                }
+            }
+            writeLineToOutputFile(ToFile, memLine);
+        }
+
+        writeLineToOutputFile(ToFile, "#End#");
+        ToFile.close();
+    }
+};
+
+int main(){ 
+    Runner runner;
+    runner.load("assembly.asm");
+    runner.run();
+    runner.dump(); 
+    return 0;
+}
