@@ -688,37 +688,41 @@ public:
 };
  
 //Class: Memory
-//Purpose: Memory is a memory management class that simulates a 64-byte memory space, providing safe read and write operations with address validation.
+//Purpose: Memory is a memory management class that simulates a 64-byte memory space, providing safe read and write operations with address validation.(validate first)
 //Writer: Janine Bong Yu Ming
 class Memory {
 private:
-        // 1-dimensional array of 64 signed bytes
+    // Array representing 64 memory locations (addresses 0 to 63)
+    // Each location stores a signed byte value (-128 to 127)
     signed char data[64];
 
 public:
-    // Constructor initializes all memory locations to zero.
+    // Constructor
+    // Initializes all memory locations to 0 when a Memory object is created
     Memory(){
         for (int i = 0; i < 64; ++i) {
             data[i] = 0;
         }
     }
-    // Destructor is virtual to allow for proper cleanup in derived classes.
+    // Virtual destructor
+    // Allows proper cleanup if another class inherits from Memory
     virtual ~Memory() {}
     // Reads a byte from the specified memory address, throwing an exception if the address is out of bounds.
     signed char readMemory(int address) const{
-        if (address >= 0 && address < 64) {
-            return data[address];
+        if (address >= 0 && address < 64) { // Check whether the address is valid (0 to 63)
+            return data[address]; // Return the value stored at this address
         } else {
-            throw InvalidMemoryException(address); // Item #8    
+            throw InvalidMemoryException(address);  // Throw an exception if the address is invalid  
         }
     }
 
-    // Writes a byte to the specified memory address, throwing an exception if the address is out of bounds.
+    // // Stores a value into the specified memory address, throwing an exception if the address is out of bounds.
     void writeMemory(int address, signed char value){
-        if (address >= 0 && address < 64) {
-            this->data[address] = value;
+        if (address >= 0 && address < 64) { // Check whether the address is valid (0 to 63)
+            this->data[address] = value; // Store the value in the memory location
         } else {
-            throw InvalidMemoryException(address); // Item #8    
+            throw InvalidMemoryException(address); // Throw an exception if the address is invalid
+  
         }
     }
 
@@ -831,11 +835,20 @@ public:
 //Writer: Janine Bong Yu Ming
 class OneOperandInstruction : public Instructions {
 protected:
+    // Stores the operand used by the instruction.
     Operand op;
 public:
-    OneOperandInstruction(int line, Operand o) : Instructions(line) {
+    // Constructor
+    // Receives the line number of the instruction and its operand.
+    OneOperandInstruction(int line, Operand o) 
+        : Instructions(line) { // Call parent class constructor
+
+        // Save the operand for later use during execution
         op = o;
     }
+
+    // Virtual destructor
+    // Ensures proper cleanup when derived instruction objects are deleted through a base class pointer.
     virtual ~OneOperandInstruction() {}
 };
 
@@ -901,9 +914,10 @@ public:
 //Writer: Janine Bong Yu Ming
 class IOInstruction : public OneOperandInstruction {
 public:
-    // pass parameter to base class constructor (the one operand instruction)
+    // Constructor: Passes the line number and operand to the parent class constructor.
     IOInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
-    //destructor clean up
+
+    //Virtual destructor: Ensures proper cleanup when derived classes are deleted.
     virtual ~IOInstruction() {}
 };
 //Class: INPUTInstruction
@@ -911,18 +925,21 @@ public:
 //Writer: Janine Bong Yu Ming
 class INPUTInstruction : public IOInstruction {
 public:
-    INPUTInstruction(int line, Operand o) : IOInstruction(line, o) {}
-    // Execute method reads an integer from the user, validates it, and stores it in the specified register.
+
+    // Constructor: Passes the line number and operand to IOInstruction.
+    INPUTInstruction(int line, Operand o) 
+        : IOInstruction(line, o) {}
+    // Execute the INPUT instruction
     void execute(CPU &cpu) override {
-        int inputVal;
-        cout << "? ";
-        cin >> inputVal;  // Read input 
+        int inputVal; // Variable to temporarily store the user's input
+        cout << "? "; // Display input prompt
+        cin >> inputVal;  // Read value entered by user
         
-        // check for non-numeric input
+        // check for non-numeric input(invalid input)
         if (cin.fail()) {
-            cin.clear();   //reset the fail state
-            cin.ignore(1000, '\n'); //discard invalid input
-            throw InvalidInputException("non-numeric input");
+            cin.clear();   // Clear the error state of cin
+            cin.ignore(1000, '\n'); // Remove the invalid characters from the input buffer
+            throw InvalidInputException("non-numeric input"); // Throw an exception to indicate invalid input
         }
         
         // write the input value to the specified register
@@ -938,10 +955,14 @@ public:
 //Writer: Janine Bong Yu Ming
 class DISPLAYInstruction : public IOInstruction {
 public:
+
+    //Constructor: Passes the line number and operand to the parent class constructor.
     DISPLAYInstruction(int line, Operand o) : IOInstruction(line, o) {}
     
+    // Execute the DISPLAY instruction
     void execute(CPU &cpu) override {
-        //convert the signed char to int for proper display
+        // Get the value stored in the specified register and convert signed char to int before printing
+        // This prevents the value from being displayed as an ASCII character
         cout << static_cast<int>(cpu.getRegister(op.getRegIndex())) << endl;
     }
 };
