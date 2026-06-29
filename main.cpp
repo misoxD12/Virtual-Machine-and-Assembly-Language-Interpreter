@@ -5,8 +5,10 @@
 #include <iomanip>
 using namespace std;
 
-// exception
-class VMException {
+//Class: VMException
+//Purpose: Custom exception class used to handle virtual machine errors by storing an error message, displaying it, and terminating the program. 
+//Writer: Lee Chung Sun
+class VMException { 
     private:
         string message;
     public:
@@ -20,71 +22,112 @@ class VMException {
         string getMessage() const { return message; }
 };
 
-// Specific exceptions inheriting from the base class
+//Class: EmptyStackException
+//Purpose: Specific exception class for handling attempts to pop from an empty stack.
+//Writer: Lee Chung Sun
 class EmptyStackException : public VMException {
 public:
-    EmptyStackException() : VMException("CRITICAL ERROR: Attempted to pop from an empty stack.") {}
+    EmptyStackException() 
+    : VMException("CRITICAL ERROR: Attempted to pop from an empty stack.") {}
 };
 
+//Class: InvalidMemoryException
+//Purpose: Specialized exception class used to handle invalid memory access errors by providing the problematic memory address.
+//Writer: Lee Chung Sun
 class InvalidMemoryException : public VMException {
 public:
     InvalidMemoryException(int address) 
         : VMException("MEMORY ERROR: Invalid memory access at address " + to_string(address)) {}
 };
 
+//Class: IndexOutOfBoundsException
+//Purpose: Specialized exception class used to handle invalid vector index access by providing the out-of-range index value.
+//Writer: Lee Chung Sun
 class IndexOutOfBoundsException : public VMException {
 public:
     IndexOutOfBoundsException(int index) 
         : VMException("VECTOR ERROR: Index " + to_string(index) + " is out of bounds.") {}
 };
 
+//Class: InvalidRegisterException
+//Purpose: Specialized exception class used to handle invalid register access by providing the invalid register index value.
+//Writer: Lee Chung Sun
 class InvalidRegisterException : public VMException {
 public:
     InvalidRegisterException(int index) 
         : VMException("REGISTER ERROR: Register index " + to_string(index) + " is outside valid range (0-7).") {}
-
+};
+//Class: InvalidFlagException
+//Purpose: Specialized exception class used to handle invalid flag access by providing the unknown flag name.
+//Writer: Lee Chung Sun
 class InvalidFlagException : public VMException {
 public:
     InvalidFlagException(string flag) 
         : VMException("FLAG ERROR: Unknown flag name '" + flag + "'. Valid flags are OF, UF, CF, ZF.") {}
-
+};
+//Class: MalformedOperandException
+//Purpose: Specialized exception class used to handle malformed or unexpected operand text by providing the problematic operand text.
+//Writer: Lee Chung Sun
 class MalformedOperandException : public VMException {
 public:
     MalformedOperandException(string text) 
         : VMException("SYNTAX ERROR: Malformed or unexpected operand text: '" + text + "'.") {}
+};
 
+//Class: DivideByZeroException
+//Purpose: Specialized exception class used to handle division by zero errors in mathematical operations.
+//Writer: Lee Chung Sun
 class DivideByZeroException : public VMException {
 public:
     DivideByZeroException() : VMException("MATH ERROR: Division by zero is not allowed.") {}
-
+};
+//Class: UnknownInstructionException
+//Purpose: Specialized exception class used to handle unknown or typo'd instructions by providing the problematic instruction text.
+//Writer: Lee Chung Sun
 class UnknownInstructionException : public VMException {
 public:
     UnknownInstructionException(string inst) 
         : VMException("PARSER ERROR: Unknown or typo'd instruction '" + inst + "'.") {}
+};
 
+//Class: MultipleInstructionsException
+//Purpose: Specialized exception class used to handle cases where multiple instructions or extra text are found on a single line of code by providing the line number.
+//Writer: Lee Chung Sun
 class MultipleInstructionsException : public VMException {
 public:
     MultipleInstructionsException(int line) 
         : VMException("SYNTAX ERROR: Multiple instructions or extra text found on line " + to_string(line) + ".") {}
-
+};
+//Class: InvalidShiftCountException
+//Purpose: Specialized exception class used to handle invalid shift or rotate counts in shift/rotate operations by providing the invalid count value.
+//Writer: Lee Chung Sun
 class InvalidShiftCountException : public VMException {
 public:
     InvalidShiftCountException(int count) 
         : VMException("SHIFT ERROR: Shift/rotate count " + to_string(count) + " is invalid.") {}
 };
 
+//Class: InvalidInputException
+//Purpose: Specialized exception class used to handle invalid user input for integer values by providing the problematic input text.
+//Writer: Lee Chung Sun
 class InvalidInputException : public VMException {
 public:
     InvalidInputException(string text) 
         : VMException("INPUT ERROR: '" + text + "' is not a valid integer.") {}
 };
 
+//Class: FileIOException
+//Purpose: Specialized exception class used to handle file input/output errors by providing the filename that could not be opened.
+//Writer: Lee Chung Sun
 class FileIOException : public VMException {
 public:
     FileIOException(string filename) 
         : VMException("FILE ERROR: Unable to open file: " + filename) {}
 };
 
+//Class: InvalidOperandLogicException
+//Purpose: Specialized exception class used to handle invalid operand combinations for specific instructions by providing the instruction name.
+//Writer: Lee Chung Sun
 class InvalidOperandLogicException : public VMException {
 public:
     InvalidOperandLogicException(string instruction) 
@@ -93,7 +136,9 @@ public:
 
 //data structure
 
-//vector
+//Class: CustomVector
+//Purpose: CustomVector is a dynamic array implementation that manages elements using manually allocated memory, supporting insertion, removal, indexing, and automatic resizing.
+//Writer: Lee Chung Sun
 template <typename T>
 class CustomVector {
 private:
@@ -209,7 +254,10 @@ public:
 
     int size() const { return currentSize; }
 };
-//Queue
+
+//Class: CustomQueue
+//Purpose: CustomQueue is a circular queue implementation that manages elements using dynamic memory, supporting FIFO operations such as enqueue and dequeue with automatic expansion.
+//Writer: Lee Chung Sun
 template <typename T>
 class CustomQueue {
 private:
@@ -312,7 +360,10 @@ public:
 
     bool isEmpty() const { return count == 0; }
 };
-//Stack
+
+//Class: CustomStack
+//Purpose: CustomStack is a dynamic stack implementation that manages elements using manually allocated memory, supporting LIFO operations such as push and pop with automatic resizing.
+//Writer: Lee Chung Sun
 template <typename T>
 class CustomStack {
 private:
@@ -387,7 +438,6 @@ public:
 
     bool isFull() const { return currentSize == capacity; }
 };
-
 
 //registers
 class Register{
@@ -630,8 +680,10 @@ public:
         return readImmediateOperand(text, len);
     }
 };
-
-//memory
+ 
+//Class: Memory
+//Purpose: Memory is a memory management class that simulates a 64-byte memory space, providing safe read and write operations with address validation.
+//Writer: Janine Bong Yu Ming
 class Memory {
 private:
         // 1-dimensional array of 64 signed bytes
@@ -768,6 +820,9 @@ public:
 
 };
 
+//Class: OneOperandInstruction
+//Purpose: OneOperandInstruction is a base instruction class that stores a single operand and provides a common structure for instructions requiring one operand.
+//Writer: Janine Bong Yu Ming
 class OneOperandInstruction : public Instructions {
 protected:
     Operand op;
@@ -835,8 +890,9 @@ public:
         cpu.setRegister(op.getRegIndex(), cpu.popValue());
     }
 };
-
-//base class input/output
+//Class: IOInstruction
+//Purpose: IOInstruction is a base instruction class for input and output operations that require one operand.
+//Writer: Janine Bong Yu Ming
 class IOInstruction : public OneOperandInstruction {
 public:
     // pass parameter to base class constructor (the one operand instruction)
@@ -844,8 +900,9 @@ public:
     //destructor clean up
     virtual ~IOInstruction() {}
 };
-
-//ask user for input and store in register
+//Class: INPUTInstruction
+//Purpose: INPUTInstruction is an instruction class that reads user input, validates it, stores the value into a register, and updates CPU flags.
+//Writer: Janine Bong Yu Ming
 class INPUTInstruction : public IOInstruction {
 public:
     INPUTInstruction(int line, Operand o) : IOInstruction(line, o) {}
@@ -869,7 +926,10 @@ public:
     }
 };
 
-//display the value in the register to the console
+
+//Class: DISPLAYInstruction
+//Purpose: DISPLAYInstruction is an instruction class that outputs the value stored in a specified register to the console.
+//Writer: Janine Bong Yu Ming
 class DISPLAYInstruction : public IOInstruction {
 public:
     DISPLAYInstruction(int line, Operand o) : IOInstruction(line, o) {}
