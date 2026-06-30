@@ -5,9 +5,444 @@
 #include <iomanip>
 using namespace std;
 
-//vmexception
-//data structure
+//Class: VMException
+//Purpose: Custom exception class used to handle virtual machine errors by storing an error message, displaying it, and terminating the program. 
+//Writer: Lee Chung Sun
+class VMException { 
+    private:
+        string message; // Stores the error message describing the exception.
+    public:
+        VMException(string msg) { 
+            message = msg; // Assigns the provided error message to the exception object.
+            cout << "Error found. Terminating program." << endl;  // Displays a general error notification.
+            cout << message << endl; // Displays the specific error message.
+            exit(1); // Stops program execution after an error occurs.
+        }
+        virtual ~VMException() {} // Virtual destructor for safe cleanup of derived exception classes.
+        string getMessage() const { 
+            return message;  // Returns the stored error message.
+        }
+};
 
+//Class: EmptyStackException
+//Purpose: Specific exception class for handling attempts to pop from an empty stack.
+//Writer: Lee Chung Sun
+class EmptyStackException : public VMException {
+public:
+    EmptyStackException() 
+    : VMException("CRITICAL ERROR: Attempted to pop from an empty stack.") {}
+};
+
+//Class: InvalidMemoryException
+//Purpose: Specialized exception class used to handle invalid memory access errors by providing the problematic memory address.
+//Writer: Lee Chung Sun
+class InvalidMemoryException : public VMException {
+public:
+    InvalidMemoryException(int address) 
+        : VMException("MEMORY ERROR: Invalid memory access at address " + to_string(address)) {}
+};
+
+//Class: IndexOutOfBoundsException
+//Purpose: Specialized exception class used to handle invalid vector index access by providing the out-of-range index value.
+//Writer: Lee Chung Sun
+class IndexOutOfBoundsException : public VMException {
+public:
+    IndexOutOfBoundsException(int index) 
+        : VMException("VECTOR ERROR: Index " + to_string(index) + " is out of bounds.") {}
+};
+
+//Class: InvalidRegisterException
+//Purpose: Specialized exception class used to handle invalid register access by providing the invalid register index value.
+//Writer: Lee Chung Sun
+class InvalidRegisterException : public VMException {
+public:
+    InvalidRegisterException(int index) 
+        : VMException("REGISTER ERROR: Register index " + to_string(index) + " is outside valid range (0-7).") {}
+};
+//Class: InvalidFlagException
+//Purpose: Specialized exception class used to handle invalid flag access by providing the unknown flag name.
+//Writer: Lee Chung Sun
+class InvalidFlagException : public VMException {
+public:
+    InvalidFlagException(string flag) 
+        : VMException("FLAG ERROR: Unknown flag name '" + flag + "'. Valid flags are OF, UF, CF, ZF.") {}
+};
+//Class: MalformedOperandException
+//Purpose: Specialized exception class used to handle malformed or unexpected operand text by providing the problematic operand text.
+//Writer: Lee Chung Sun
+class MalformedOperandException : public VMException {
+public:
+    MalformedOperandException(string text) 
+        : VMException("SYNTAX ERROR: Malformed or unexpected operand text: '" + text + "'.") {}
+};
+
+//Class: DivideByZeroException
+//Purpose: Specialized exception class used to handle division by zero errors in mathematical operations.
+//Writer: Lee Chung Sun
+class DivideByZeroException : public VMException {
+public:
+    DivideByZeroException() : VMException("MATH ERROR: Division by zero is not allowed.") {}
+};
+//Class: UnknownInstructionException
+//Purpose: Specialized exception class used to handle unknown or typo'd instructions by providing the problematic instruction text.
+//Writer: Lee Chung Sun
+class UnknownInstructionException : public VMException {
+public:
+    UnknownInstructionException(string inst) 
+        : VMException("PARSER ERROR: Unknown or typo'd instruction '" + inst + "'.") {}
+};
+
+//Class: MultipleInstructionsException
+//Purpose: Specialized exception class used to handle cases where multiple instructions or extra text are found on a single line of code by providing the line number.
+//Writer: Lee Chung Sun
+class MultipleInstructionsException : public VMException {
+public:
+    MultipleInstructionsException(int line) 
+        : VMException("SYNTAX ERROR: Multiple instructions or extra text found on line " + to_string(line) + ".") {}
+};
+//Class: InvalidShiftCountException
+//Purpose: Specialized exception class used to handle invalid shift or rotate counts in shift/rotate operations by providing the invalid count value.
+//Writer: Lee Chung Sun
+class InvalidShiftCountException : public VMException {
+public:
+    InvalidShiftCountException(int count) 
+        : VMException("SHIFT ERROR: Shift/rotate count " + to_string(count) + " is invalid.") {}
+};
+
+//Class: InvalidInputException
+//Purpose: Specialized exception class used to handle invalid user input for integer values by providing the problematic input text.
+//Writer: Lee Chung Sun
+class InvalidInputException : public VMException {
+public:
+    InvalidInputException(string text) 
+        : VMException("INPUT ERROR: '" + text + "' is not a valid integer.") {}
+};
+
+//Class: FileIOException
+//Purpose: Specialized exception class used to handle file input/output errors by providing the filename that could not be opened.
+//Writer: Lee Chung Sun
+class FileIOException : public VMException {
+public:
+    FileIOException(string filename) 
+        : VMException("FILE ERROR: Unable to open file: " + filename) {}
+};
+
+//Class: InvalidOperandLogicException
+//Purpose: Specialized exception class used to handle invalid operand combinations for specific instructions by providing the instruction name.
+//Writer: Lee Chung Sun
+class InvalidOperandLogicException : public VMException {
+public:
+    InvalidOperandLogicException(string instruction) 
+        : VMException("EXECUTION ERROR: Invalid operand combination for " + instruction + " instruction.") {}
+};
+
+//Data structure
+//Class: CustomVector
+//Purpose: CustomVector is a dynamic array implementation that manages elements using manually allocated memory, supporting insertion, removal, indexing, and automatic resizing.
+//Writer: Lee Chung Sun
+template <typename T>
+class CustomVector {
+private:
+    T* data;           // Dynamic array to hold the elements.
+    int currentSize;   // Stores the current number of elements in the vector.
+    int capacity;      // Stores the total allocated memory capacity of the vector.
+
+    // Expands the dynamic array size by creating a larger array and copying existing elements.
+    void expand() {
+int newCapacity = 0;
+        if (capacity == 0) {
+            newCapacity = 2; // Set initial capacity if the array is empty.
+        } else {
+            newCapacity = capacity * 2; // Double the current capacity when full.
+        }        
+        T* newData = new T[newCapacity]; // Allocate a new larger memory block.
+        for (int i = 0; i < currentSize; i++) {
+            newData[i] = data[i]; // Copy existing elements into the new array.
+        }
+        delete[] data; // Release old memory to prevent memory leaks.
+        data = newData;// Update pointer to the new array.
+        capacity = newCapacity; // Update the new capacity value.
+    }
+
+public:
+    CustomVector() {
+        capacity = 10; // Set default starting capacity.
+        currentSize = 0; // Initialize vector as empty.
+        data = new T[capacity]; // Allocate memory for the elements.
+    }
+
+    ~CustomVector() {
+        delete[] data;  // Free allocated memory when vector is destroyed.
+    }
+
+     // Copy constructor that creates a deep copy of another CustomVector object.
+    CustomVector(const CustomVector& other) {
+        capacity = other.capacity; // Copy capacity value.
+        currentSize = other.currentSize;  // Copy number of elements.
+        data = new T[capacity]; // Allocate new memory.
+        for (int i = 0; i < currentSize; i++) {
+            data[i] = other.data[i];  // Copy each element.
+        }
+    }
+
+     // Assignment operator that replaces current data with a deep copy of another vector.
+    CustomVector& operator=(const CustomVector& other) {
+        if (this != &other) {   // Prevent self-assignment.
+            delete[] data;  // Free existing memory.
+            capacity = other.capacity; // Copy capacity.
+            currentSize = other.currentSize; //Copy Size.
+            data = new T[capacity]; // Allocate new memory.
+            for (int i = 0; i < currentSize; i++) {
+                data[i] = other.data[i]; // Copy elements.
+            }
+        }
+        return *this;  // Return the updated object.
+    }
+
+    // Adds a new element to the end of the vector.
+    void push_back(const T& value) {
+        if (currentSize == capacity) {
+            expand(); // Resize if capacity is reached.
+        }
+        data[currentSize] = value; // Store new element.
+        currentSize++;  // Increase element count.
+    }
+
+    // Removes the last element from the vector
+    void pop_back() {
+        if (currentSize > 0) {
+            currentSize--; // Reduce element count.
+        } else {
+            throw VMException("VECTOR ERROR: Attempted to pop_back from an empty vector.");
+        }
+    }
+
+    // Removes an item and shifts remaining items left to prevent gaps in memory.
+    void erase(int index) {
+        if (index < 0 || index >= currentSize) {
+            throw IndexOutOfBoundsException(index); // Prevent invalid index access.
+        }
+        // Shift elements left to fill the gap created by the removed item.
+        for (int i = index; i < currentSize - 1; i++) {
+            data[i] = data[i + 1]; // Shift elements to fill removed position.
+        }
+        currentSize--;
+    }
+
+    // Returns an element at the specified index with bounds checking.
+    T get(int index) const {
+        if (index < 0 || index >= currentSize) {
+            throw IndexOutOfBoundsException(index);  // Prevent invalid access.
+        }
+        return data[index]; // Return requested element.
+    }
+
+    // Safely gets an item with bounds checking
+    T at(int index) const {
+        if (index < 0 || index >= currentSize) {
+            throw IndexOutOfBoundsException(index); // Throw exception for invalid index.
+        } 
+        return data[index]; // Return element value.
+    }
+
+    // Overloaded [] operator for standard array-like access (Read/Write)
+    T &operator[](int index) {
+        return data[index]; // Return reference to element.
+    }
+
+    // Overloaded [] operator for standard array-like access (Read-Only)
+    const T &operator[](int index) const {
+        return data[index]; // Return constant reference to element.
+    }
+
+    // Returns the current number of stored elements.
+    int size() const { return currentSize; }
+};
+
+//Class: CustomQueue
+//Purpose: CustomQueue is a circular queue implementation that manages elements using dynamic memory, supporting FIFO operations such as enqueue and dequeue with automatic expansion.
+//Writer: Lee Chung Sun
+template <typename T>
+class CustomQueue {
+private:
+    T* data;
+    int capacity;
+    int frontIndex; // Points to the first item.
+    int rearIndex;  // Points to the last item.
+    int count;      // Tracks total items currently in the queue.
+
+    // Expands the array and realigns the circular structure into a straight line.
+    void expand() {
+        int oldCapacity = capacity;
+        int newCapacity = 0;
+        if (oldCapacity == 0) {
+            newCapacity = 2; // Start with a capacity of 2 if it was empty
+        } else {
+            newCapacity = oldCapacity * 2; // Otherwise, double the current capacity
+        }
+        T* newData = new T[newCapacity];
+        for (int i = 0; i < count; i++) {
+            // Guarded: Uses oldCapacity to safely unwrap, avoiding modulo by 0
+        int safeIndex = 0;
+
+        if (oldCapacity > 0) {
+            // Calculate the index wrapping around the circular array
+            safeIndex = (frontIndex + i) % oldCapacity;
+        } else {
+            // Default to 0 if the array has no capacity yet
+            safeIndex = 0;
+        }            
+        newData[i] = data[safeIndex]; // Copy elements to the new array in order.
+        }
+        
+        delete[] data; // Free the old memory to prevent leaks.
+        data = newData; // Update the data pointer to the new array.
+        frontIndex = 0;
+        rearIndex = count - 1;
+        capacity = newCapacity; // Update the capacity to the new size.
+    }
+
+public:
+    CustomQueue() {
+        capacity = 10;
+        data = new T[capacity];
+        frontIndex = 0;
+        rearIndex = -1;
+        count = 0;
+    }
+
+    ~CustomQueue() { delete[] data; }
+
+    // Copy Constructor
+    CustomQueue(const CustomQueue& other) {
+        capacity = other.capacity; // Copy the capacity from the other queue
+        frontIndex = other.frontIndex; // Copy the front index from the other queue
+        rearIndex = other.rearIndex; // Copy the rear index from the other queue
+        count = other.count; // Copy the count of elements from the other queue
+        data = new T[capacity]; // Allocate new memory for the data array
+        for (int i = 0; i < capacity; i++) {
+            data[i] = other.data[i]; // Copy each element from the other queue's data array
+        }
+    }
+
+    // Assignment Operator
+    CustomQueue& operator=(const CustomQueue& other) {
+        if (this != &other) {
+            delete[] data; // Free existing memory to prevent leaks
+            capacity = other.capacity; 
+            frontIndex = other.frontIndex; 
+            rearIndex = other.rearIndex; 
+            count = other.count; 
+            data = new T[capacity]; 
+            for (int i = 0; i < capacity; i++) {
+                data[i] = other.data[i]; 
+            }
+        }
+        return *this;
+    }
+
+    void enqueue(const T& value) {
+        if (count == capacity) {
+            expand();
+        }
+        // Modulo arithmetic wraps the rear index back to 0 if it reaches the end.
+        rearIndex = (rearIndex + 1) % capacity; // Move rear index forward in a circular manner
+        data[rearIndex] = value; // Store the new value at the rear index
+        count++;
+    }
+
+    T dequeue() {
+        if (isEmpty()) {
+            throw VMException("QUEUE ERROR: Attempted to dequeue from an empty queue.");
+        }
+        T value = data[frontIndex];
+        // Modulo arithmetic wraps the front index back to 0 if it reaches the end.
+        frontIndex = (frontIndex + 1) % capacity; // Move front index forward in a circular manner
+        count--;
+        return value;
+    }
+
+    bool isEmpty() const { return count == 0; }
+};
+
+//Class: CustomStack
+//Purpose: CustomStack is a dynamic stack implementation that manages elements using manually allocated memory, supporting LIFO operations such as push and pop with automatic resizing.
+//Writer: Lee Chung Sun
+template <typename T>
+class CustomStack {
+private:
+    T* data;
+    int capacity;
+    int currentSize;
+
+    void expand() {
+        if (capacity == 0) {
+            capacity = 2; // Start with a capacity of 2 if it was empty
+        } else {
+            capacity = capacity * 2; // Otherwise, double the current capacity
+        }  
+        T* newData = new T[capacity];
+        for (int i = 0; i < currentSize; i++) {
+            newData[i] = data[i]; // Copy existing elements into the new array.
+        }
+        delete[] data; 
+        data = newData; // Update pointer to the new array.
+    }
+
+public:
+    // Constructor initializes the stack with a default capacity of 8 elements.
+    CustomStack() {
+        capacity = 8; // Virtual machine stack is 8 elements.
+        currentSize = 0;
+        data = new T[capacity]; // Allocate memory for the stack elements.
+    }
+
+    ~CustomStack() { delete[] data; }
+    // Copy constructor for deep copying another CustomStack object.
+    CustomStack(const CustomStack& other) {
+        capacity = other.capacity; 
+        currentSize = other.currentSize;
+        data = new T[capacity];
+        for (int i = 0; i < currentSize; i++) {
+            data[i] = other.data[i];
+        }
+    }
+    // Assignment operator for deep copying another CustomStack object.
+    CustomStack& operator=(const CustomStack& other) {
+        if (this != &other) {
+            delete[] data;
+            capacity = other.capacity;
+            currentSize = other.currentSize;
+            data = new T[capacity];
+            for (int i = 0; i < currentSize; i++) {
+                data[i] = other.data[i];
+            }
+        }
+        return *this;
+    }
+    // Adds a new element to the top of the stack, expanding if necessary.
+    void push(const T& value) {
+        if (currentSize == capacity) {
+            expand();
+        }
+        // Adds item to the top of the stack.
+        data[currentSize] = value;
+        currentSize++;
+    }
+    // Removes and returns the top element of the stack, throwing an exception if the stack is empty.
+    T pop() {
+        if (isEmpty()) {
+            // Crash/stop safely on empty pop.
+            throw EmptyStackException(); 
+        }
+        currentSize--;
+        return data[currentSize];
+    }
+    // Returns the current number of elements in the stack.
+    bool isEmpty() const { return currentSize == 0; }
+    // Returns true if the stack is full, false otherwise.
+    bool isFull() const { return currentSize == capacity; }
+};
 
 //Class: Register
 //Purpose: Base class representing a single 8-bit signed register value.
@@ -262,7 +697,42 @@ public:
     }
 };
 
-//memory
+//Class: Memory
+//Purpose: Memory is a memory management class that simulates a 64-byte memory space, providing safe read and write operations with address validation.
+//Writer: Janine Bong Yu Ming
+class Memory {
+private:
+        // 1-dimensional array of 64 signed bytes
+    signed char data[64];
+
+public:
+    // Constructor initializes all memory locations to zero.
+    Memory(){
+        for (int i = 0; i < 64; ++i) {
+            data[i] = 0;
+        }
+    }
+    // Destructor is virtual to allow for proper cleanup in derived classes.
+    virtual ~Memory() {}
+    // Reads a byte from the specified memory address, throwing an exception if the address is out of bounds.
+    signed char readMemory(int address) const{
+        if (address >= 0 && address < 64) {
+            return data[address];
+        } else {
+            throw InvalidMemoryException(address);    
+        }
+    }
+
+    // Writes a byte to the specified memory address, throwing an exception if the address is out of bounds.
+    void writeMemory(int address, signed char value){
+        if (address >= 0 && address < 64) {
+            this->data[address] = value;
+        } else {
+            throw InvalidMemoryException(address); 
+        }
+    }
+
+};
 
 //Class: CPU
 //Purpose: Holds all the vm components (registers, flags, memory,  stack, PC), and let instruction to read and change the values.
@@ -371,7 +841,127 @@ public:
 
 };
 
-//oneoperand
+//Class: OneOperandInstruction
+//Purpose: OneOperandInstruction is a base instruction class that stores a single operand and provides a common structure for instructions requiring one operand.
+//Writer: Janine Bong Yu Ming
+class OneOperandInstruction : public Instructions {
+protected:
+    Operand op;
+public:
+    OneOperandInstruction(int line, Operand o) : Instructions(line) {
+        op = o;
+    }
+    virtual ~OneOperandInstruction() {}
+};
+
+
+class RESETInstruction : public Instructions {
+private:
+    string targetFlag;
+public:
+    RESETInstruction(int line, string flag) : Instructions(line), targetFlag(flag) {}
+    
+    void execute(CPU &cpu) override {
+        cpu.getFlags().resetByName(targetFlag);
+    }
+};
+
+
+class INCInstruction : public OneOperandInstruction {
+public:
+    INCInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
+    
+    void execute(CPU &cpu) override {
+        int val = cpu.getRegister(op.getRegIndex());
+        val++;
+        
+        cpu.getFlags().updateFromResult(val);
+        cpu.setRegister(op.getRegIndex(), static_cast<signed char>(val));
+    }
+};
+
+class DECInstruction : public OneOperandInstruction {
+public:
+    DECInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
+    
+    void execute(CPU &cpu) override {
+        int val = cpu.getRegister(op.getRegIndex());
+        val--;
+        
+        cpu.getFlags().updateFromResult(val);
+        cpu.setRegister(op.getRegIndex(), static_cast<signed char>(val));
+    }
+};
+
+class PUSHInstruction : public OneOperandInstruction {
+public:
+    PUSHInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
+    
+    void execute(CPU &cpu) override {
+        cpu.pushValue(cpu.getRegister(op.getRegIndex()));
+    }
+};
+
+class POPInstruction : public OneOperandInstruction {
+public:
+    POPInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
+    
+    void execute(CPU &cpu) override {
+        cpu.setRegister(op.getRegIndex(), cpu.popValue());
+    }
+};
+
+//Class: IOInstruction
+//Purpose: IOInstruction is a base instruction class for input and output operations that require one operand.
+//Writer: Janine Bong Yu Ming
+class IOInstruction : public OneOperandInstruction {
+public:
+    // pass parameter to base class constructor (the one operand instruction)
+    IOInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
+    //destructor clean up
+    virtual ~IOInstruction() {}
+};
+
+//Class: INPUTInstruction
+//Purpose: INPUTInstruction is an instruction class that reads user input, validates it, stores the value into a register, and updates CPU flags.
+//Writer: Janine Bong Yu Ming
+class INPUTInstruction : public IOInstruction {
+public:
+    INPUTInstruction(int line, Operand o) : IOInstruction(line, o) {}
+    // Execute method reads an integer from the user, validates it, and stores it in the specified register.
+    void execute(CPU &cpu) override {
+        int inputVal;
+        cout << "? ";
+        cin >> inputVal;  // Read input 
+        
+        // check for non-numeric input
+        if (cin.fail()) {
+            cin.clear();   //reset the fail state
+            cin.ignore(1000, '\n'); //discard invalid input
+            throw InvalidInputException("non-numeric input");
+        }
+        
+        // write the input value to the specified register
+        cpu.setRegister(op.getRegIndex(), static_cast<signed char>(inputVal));
+        // make sure the CPU flags reflect the new value
+        cpu.getFlags().updateFromResult(inputVal);
+    }
+};
+
+
+//Class: DISPLAYInstruction
+//Purpose: DISPLAYInstruction is an instruction class that outputs the value stored in a specified register to the console.
+//Writer: Janine Bong Yu Ming
+class DISPLAYInstruction : public IOInstruction {
+public:
+    DISPLAYInstruction(int line, Operand o) : IOInstruction(line, o) {}
+    
+    void execute(CPU &cpu) override {
+        //convert the signed char to int for proper display
+        cout << static_cast<int>(cpu.getRegister(op.getRegIndex())) << endl;
+    }
+};
+
 //Class: TwoOperandInstruction 
 // Purpose: thisclass for all instructions that take 2 operands
 // Writer: Harsimran
@@ -385,6 +975,7 @@ public:
     }
     virtual ~TwoOperandInstruction(){}
 };
+
 // Class: ArithmeticInstruction
 // Puropuse: this class groups all arithmetic instructions  which is the ADD/SUB/MUL/DIV
 // Writer: Harsimran
@@ -393,10 +984,10 @@ public:
     ArithmeticInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
     virtual ~ArithmeticInstruction(){}
 };
+
 // class: MOVInstruction
 // Purpose: this class copy the value into destination register. Supports 4 modes which are immediate, register, indirect, direct
 // Writer: Harsimran
-
 class MOVInstruction : public TwoOperandInstruction {
 public:
     MOVInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
@@ -421,6 +1012,7 @@ public:
         else{ throw InvalidOperandLogicException("MOV"); }
     }
 };
+
 // Class: ADDInstruction
 // Purpose: this class add op2 to op1, stores in  op1 updates flags after operation
 // Writer: Harsimran
@@ -462,10 +1054,10 @@ public:
         cpu.getFlags().updateFromResult(result); // update the flags
     }
 };
+
 // Class :MULInstruction
 // Purpose: this class multiply op2 to op1, stores in op1 updates flags after operation
 // Writer: Harsimran
-
 class MULInstruction : public ArithmeticInstruction {
 public:
     MULInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
@@ -483,6 +1075,7 @@ public:
         cpu.getFlags().updateFromResult(result); // update the flags
     }
 };
+
 // Class: DIVInstruction
 // Purpose: this class subtract op2 to op1, stores in op1 updates flags after operation
 // Writer: Harsimran
@@ -505,6 +1098,7 @@ public:
         cpu.getFlags().updateFromResult(result);
     }
 };
+
 // Class : LOADInstruction
 // Purpose: this class loads value from memory into destination register and can use direct and indirect mode
 // Writer: Harsimran
@@ -524,10 +1118,10 @@ public:
         else{ throw InvalidOperandLogicException("LOAD"); }
     }
 };
+
 //Class: STOREInstruction 
 // Purpose: this class stores register value into memory and support 3 modes
 // Writer: Harsimran
-
 class STOREInstruction : public TwoOperandInstruction {
 public:
     STOREInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
