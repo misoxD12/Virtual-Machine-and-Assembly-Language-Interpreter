@@ -597,7 +597,7 @@ public:
 //enum these type eg (R3, 5, [20], [R2])
 enum OperandType {Register, Immediate, directMem, indirectMem};
 
-////Class: Operand
+//Class: Operand
 //Purpose: A class that holds operand type, and value/register involved
 //Writer: Chai Ming Song
 class Operand{
@@ -911,21 +911,7 @@ class INCInstruction : public OneOperandInstruction {
 public:
     // Constructor: Passes the line number and operand to the parent class constructor.
     INCInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
-    /*
-    void execute(CPU &cpu) override { // Execute the INC instruction
-        int val = cpu.getRegister(op.getRegIndex()); // Get the current value stored in the target register
-        val++;         
 
-        // Update CPU flags based on the new value
-        cpu.getFlags().updateFromResult(val);
-
-        // Store the updated value back into the register
-        // static_cast converts int back to signed char
-        cpu.setRegister(
-            op.getRegIndex(), 
-            static_cast<signed char>(val)
-        ); 
-    }*/
     void execute(CPU &cpu) override {
         if (op.getType() != Register){throw InvalidOperandLogicException("INC - Destination must be a register");}
         int regIdx = op.getRegIndex(); //which register to increment
@@ -946,18 +932,6 @@ class DECInstruction : public OneOperandInstruction {
 public:
     // Constructor passes the line number and operand to the parent class.
     DECInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
-    /*
-    // Execute the DEC instruction.
-    void execute(CPU &cpu) override {
-        // Get the current value from the target register.
-        int val = cpu.getRegister(op.getRegIndex());
-        val--;
-        
-        // Update CPU flags based on the new value.
-        cpu.getFlags().updateFromResult(val);
-        // Store the updated value back into the register.
-        cpu.setRegister(op.getRegIndex(), static_cast<signed char>(val));
-    }*/
 
     void execute(CPU &cpu) override {
         if (op.getType() != Register){throw InvalidOperandLogicException("DEC - Destination must be a register");}
@@ -1128,23 +1102,20 @@ public:
     void execute(CPU &cpu){
         if (op1.getType() != Register){throw InvalidOperandLogicException("ADD - Destination must be a register");}
         int dest = op1.getRegIndex();
-        signed char a = cpu.getRegister(dest); //ADDED
-        signed char b; //ADDED
+        signed char a = cpu.getRegister(dest); 
+        signed char b; 
         
-        // REMOVED int result; // use int to detect overflow before casting
         if (op2.getType() == Immediate){
-            // REMOVED result = cpu.getRegister(dest) + op2.getValue();
-            b = (signed char)op2.getValue(); //ADDED
+            b = (signed char)op2.getValue(); 
         }
         else if (op2.getType() == Register){
-            //REMOVED result = cpu.getRegister(dest) + cpu.getRegister(op2.getRegIndex());
-            b = cpu.getRegister(op2.getRegIndex()); //ADDED
+            b = cpu.getRegister(op2.getRegIndex()); 
         }
         else{ throw InvalidOperandLogicException("ADD"); }
-        int result = (int)a + (int)b; //ADDED
+        int result = (int)a + (int)b; 
         cpu.setRegister(dest, (signed char)result); // cast back to signed char
         cpu.getFlags().updateFromResult(result);// update the flaggs
-        cpu.getFlags().checkNupdateCarryAdd(a,b); //ADDED
+        cpu.getFlags().checkNupdateCarryAdd(a,b); 
 
     }
 };
@@ -1158,23 +1129,20 @@ public:
     void execute(CPU &cpu){
         if (op1.getType() != Register){throw InvalidOperandLogicException("SUB - Destination must be a register");}
         int dest = op1.getRegIndex();
-        signed char a = cpu.getRegister(dest); //ADDED
-        signed char b; //ADDED
+        signed char a = cpu.getRegister(dest); 
+        signed char b; 
 
-        // REMOVED int result; // use int to detect overflow before casting
         if (op2.getType() == Immediate){
-            // REMOVED result = cpu.getRegister(dest) - op2.getValue();
-            b = (signed char)op2.getValue(); //ADDED
+            b = (signed char)op2.getValue(); 
         }
         else if (op2.getType() == Register){
-            //REMOVED result = cpu.getRegister(dest) - cpu.getRegister(op2.getRegIndex());
-            b = cpu.getRegister(op2.getRegIndex()); //ADDED
+            b = cpu.getRegister(op2.getRegIndex()); 
         }
         else{ throw InvalidOperandLogicException("SUB"); }
-        int result = (int)a - (int)b; //ADDED
+        int result = (int)a - (int)b; 
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result); // update the flags
-        cpu.getFlags().checkNupdateCarrySub(a,b); //ADDED
+        cpu.getFlags().checkNupdateCarrySub(a,b); 
 
     }
 };
@@ -1188,24 +1156,21 @@ public:
     void execute(CPU &cpu){
         if (op1.getType() != Register){throw InvalidOperandLogicException("MUL - Destination must be a register");}
         int dest = op1.getRegIndex();
-        signed char a = cpu.getRegister(dest); //ADDED
-        signed char b; //ADDED
-        // REMOVED int result; // use int to detect overflow before casting
+        signed char a = cpu.getRegister(dest); 
+        signed char b; 
         if (op2.getType() == Immediate){
-            //REMOVED result = cpu.getRegister(dest) * op2.getValue();
-            b = (signed char)op2.getValue(); //ADDED
+            b = (signed char)op2.getValue(); 
 
         }
         else if (op2.getType() == Register){
-           //REMOVED result = cpu.getRegister(dest) * cpu.getRegister(op2.getRegIndex());
             b = cpu.getRegister(op2.getRegIndex());
 
         }
         else{ throw InvalidOperandLogicException("MUL"); }
-        int result = (int)a * (int)b;//ADDED
+        int result = (int)a * (int)b;
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result); // update the flags
-        cpu.getFlags().checkNupdateCarryMul(a,b); //ADDED
+        cpu.getFlags().checkNupdateCarryMul(a,b); 
 
     }
 };
@@ -1219,22 +1184,18 @@ public:
     void execute(CPU &cpu){
         if (op1.getType() != Register){throw InvalidOperandLogicException("DIV - Destination must be a register");}
         int dest = op1.getRegIndex();
-        signed char a = cpu.getRegister(dest); //ADDED
-        signed char b; //ADDED
-        //REMOVED int result;
+        signed char a = cpu.getRegister(dest); 
+        signed char b; 
         if (op2.getType() == Immediate){
             if (op2.getValue() == 0){ throw DivideByZeroException(); return; } //  check if got divide by zero 
-            //REMOVED result = cpu.getRegister(dest) / op2.getValue();
-            b = (signed char)op2.getValue(); //ADDED
+            b = (signed char)op2.getValue(); 
         }
         else if (op2.getType() == Register){
-            b = cpu.getRegister(op2.getRegIndex()); //ADDED
-            //REMOVED if (cpu.getRegister(op2.getRegIndex()) == 0){ throw DivideByZeroException(); return; }
-            if (b == 0){ DivideByZeroException err; return; } // ADDED
-            //REMOVED result = cpu.getRegister(dest) / cpu.getRegister(op2.getRegIndex());
+            b = cpu.getRegister(op2.getRegIndex()); 
+            if (b == 0){ DivideByZeroException err; return; } 
         }
         else{ throw InvalidOperandLogicException("DIV"); return; }
-        int result = (int)a / (int)b; // ADDED
+        int result = (int)a / (int)b; 
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result);
         cpu.getFlags().updateCarryForDiv(a, b);  
