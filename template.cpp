@@ -1440,10 +1440,8 @@ public:
         }
         writeLineToOutputFile(ToFile, regLine);
 
-        string flagLine = "#Flags#OF#" + to_string(cpu.getFlags().getOverflow()) +///print 4 flags
-                        "#UF#" + to_string(cpu.getFlags().getUnderflow()) +
-                        "#CF#" + to_string(cpu.getFlags().getCarry()) +
-                        "#ZF#" + to_string(cpu.getFlags().getZero()) + "#";
+        string flagLine = "#Flags#OF#" + to_string(cpu.getFlags().getOverflow()) + "#UF#" + to_string(cpu.getFlags().getUnderflow()) +
+                        "#CF#" + to_string(cpu.getFlags().getCarry()) + "#ZF#" + to_string(cpu.getFlags().getZero()) + "#";//print 4 flags
         writeLineToOutputFile(ToFile, flagLine);
 
         writeLineToOutputFile(ToFile, "#PC#" + formatVal(cpu.getPC(), 4) + "#"); // print program counter PC 
