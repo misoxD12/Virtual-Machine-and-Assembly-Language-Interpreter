@@ -813,17 +813,22 @@ public:
         
 };
 
-//instructions
+//Class：Instructions
+//Purpose: Abstract base class for all virtual machine instructions, storing the line number and providing a common execute interface.
+//Writer: Janine Bong Yu Ming
 class Instructions{
 protected:
-    int lineNum;
+    int lineNum; // Stores the original line number of the instruction in the source program.
 public:
-    Instructions(int line){ //constructor
+    Instructions(int line){ // Constructor: Initializes the instruction with its corresponding line number.
         lineNum = line;
     }
+    // Virtual destructor ensures proper cleanup when derived instruction objects are deleted through an Instructions pointer.
     virtual ~Instructions(){}
+    // Pure virtual function that forces all derived instruction classes to provide their own execution logic.
     virtual void execute(CPU &cpu) = 0; //for instrcution polymorphsm
 
+    // Returns the source code line number of this instruction.
     int getLineNum() const{
         return lineNum;
     }
