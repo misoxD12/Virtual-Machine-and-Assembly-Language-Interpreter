@@ -561,12 +561,35 @@ public:
         } else{
             ZeroFlag = false;
         }
-        if (result > 255 || result < 0){//check carry result exceeds the capacity of 8 bits (unsigned 0-255 range)  
-            CarryFlag = true;
-        } else {
-            CarryFlag = false;
-        }
     }
+
+    //see whether got 9th bit 
+    void checkNupdateCarryAdd(signed char a, signed char b){
+        unsigned char ua = static_cast<unsigned char>(a); //convert a b to unsigned a b
+        unsigned char ub = static_cast<unsigned char>(b);
+        int rawSum = (int)ua + (int)ub; //calclulate
+        CarryFlag = (rawSum > 255);
+    }
+
+    //see whether got borrow or not
+    void checkNupdateCarrySub(signed char a, signed char b){
+        unsigned char ua = static_cast<unsigned char>(a); //convert a b to unsigned
+        unsigned char ub = static_cast<unsigned char>(b);
+        int rawDiff = (int)ua - (int)ub;//calculate
+        CarryFlag = (rawDiff < 0);
+    }
+
+    void checkNupdateCarryMul(signed char a, signed char b){
+        unsigned char ua = static_cast<unsigned char>(a);   
+        unsigned char ub = static_cast<unsigned char>(b); 
+        int rawProduct = (int)ua * (int)ub; 
+        CarryFlag = (rawProduct > 255); 
+    }
+    //self note: Division of two unsigned bytes can never produce a result outside the 0-255 range
+    void updateCarryForDiv(signed char a, signed char b){
+    CarryFlag = false;
+}
+
 };
 
 
@@ -702,33 +725,36 @@ public:
 //Writer: Janine Bong Yu Ming
 class Memory {
 private:
-        // 1-dimensional array of 64 signed bytes
+    // Array representing 64 memory locations (addresses 0 to 63)
+    // Each location stores a signed byte value (-128 to 127)
     signed char data[64];
 
 public:
-    // Constructor initializes all memory locations to zero.
+    // Constructor
+    // Initializes all memory locations to 0 when a Memory object is created
     Memory(){
         for (int i = 0; i < 64; ++i) {
             data[i] = 0;
         }
     }
-    // Destructor is virtual to allow for proper cleanup in derived classes.
+    // destructor
     virtual ~Memory() {}
     // Reads a byte from the specified memory address, throwing an exception if the address is out of bounds.
     signed char readMemory(int address) const{
-        if (address >= 0 && address < 64) {
-            return data[address];
+        if (address >= 0 && address < 64) { // Check whether the address is valid (0 to 63)
+            return data[address]; // Return the value stored at this address
         } else {
-            throw InvalidMemoryException(address);    
+            throw InvalidMemoryException(address);  // Throw an exception if the address is invalid  
         }
     }
 
-    // Writes a byte to the specified memory address, throwing an exception if the address is out of bounds.
+    // Stores a value into the specified memory address, throwing an exception if the address is out of bounds.
     void writeMemory(int address, signed char value){
-        if (address >= 0 && address < 64) {
-            this->data[address] = value;
+        if (address >= 0 && address < 64) { // Check whether the address is valid (0 to 63)
+            this->data[address] = value; // Store the value in the memory location
         } else {
-            throw InvalidMemoryException(address); 
+            throw InvalidMemoryException(address); // Throw an exception if the address is invalid
+  
         }
     }
 
@@ -846,79 +872,145 @@ public:
 //Writer: Janine Bong Yu Ming
 class OneOperandInstruction : public Instructions {
 protected:
+    // Stores the operand used by the instruction.
     Operand op;
 public:
-    OneOperandInstruction(int line, Operand o) : Instructions(line) {
+    // Constructor: Receives the line number of the instruction and its operand.
+    OneOperandInstruction(int line, Operand o) 
+        : Instructions(line) { // Call parent class constructor
+
+        // Save the operand for later use during execution
         op = o;
     }
+
+    //destructor
     virtual ~OneOperandInstruction() {}
 };
 
-
+//Class: RESETInstruction
+//Purpose: RESETInstruction is an instruction class that resets a specified CPU flag (such as Zero, Negative, Carry, or Overflow) back to false.
+//Writer: Janine Bong Yu Ming
 class RESETInstruction : public Instructions {
 private:
-    string targetFlag;
+    string targetFlag; // Stores the name of the flag that should be reset.(Z,N,C,V)
 public:
+    // Constructor: Receives the instruction line number and the flag name to reset.
     RESETInstruction(int line, string flag) : Instructions(line), targetFlag(flag) {}
     
+    // Execute the RESET instruction
     void execute(CPU &cpu) override {
+        // Reset the specified CPU flag to false.
         cpu.getFlags().resetByName(targetFlag);
     }
 };
 
-
+//Class: INCInstruction
+//Purpose: INCInstruction is an instruction class that increases the value stored in a specified register by 1 and updates the CPU flags accordingly.
+//Writer: Janine Bong Yu Ming
 class INCInstruction : public OneOperandInstruction {
 public:
+    // Constructor: Passes the line number and operand to the parent class constructor.
     INCInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
-    
-    void execute(CPU &cpu) override {
-        int val = cpu.getRegister(op.getRegIndex());
-        val++;
-        
-        cpu.getFlags().updateFromResult(val);
-        cpu.setRegister(op.getRegIndex(), static_cast<signed char>(val));
-    }
-};
+    /*
+    void execute(CPU &cpu) override { // Execute the INC instruction
+        int val = cpu.getRegister(op.getRegIndex()); // Get the current value stored in the target register
+        val++;         
 
+        // Update CPU flags based on the new value
+        cpu.getFlags().updateFromResult(val);
+
+        // Store the updated value back into the register
+        // static_cast converts int back to signed char
+        cpu.setRegister(
+            op.getRegIndex(), 
+            static_cast<signed char>(val)
+        ); 
+    }*/
+    void execute(CPU &cpu) override {
+        int regIdx = op.getRegIndex(); //which register to increment
+        signed char a = cpu.getRegister(regIdx); //read the current value
+        int result = (int)a + 1; //do the math as int, so the true result is visible before clamping
+
+        cpu.setRegister(regIdx, (signed char)result); //clamp back to signed char and store
+        cpu.getFlags().updateFromResult(result); //update Overflow/Underflow/Zero from the true result
+        cpu.getFlags().checkNupdateCarryAdd(a, 1); //update Carry, treating this as "add 1"
+    }
+
+};  
+
+//Class: DECInstruction
+//Purpose: DECInstruction is an instruction class that decreases the value stored in a specified register by 1 and updates the CPU flags accordingly.
+//Writer: Janine Bong Yu Ming
 class DECInstruction : public OneOperandInstruction {
 public:
+    // Constructor passes the line number and operand to the parent class.
     DECInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
-    
+    /*
+    // Execute the DEC instruction.
     void execute(CPU &cpu) override {
+        // Get the current value from the target register.
         int val = cpu.getRegister(op.getRegIndex());
         val--;
         
+        // Update CPU flags based on the new value.
         cpu.getFlags().updateFromResult(val);
+        // Store the updated value back into the register.
         cpu.setRegister(op.getRegIndex(), static_cast<signed char>(val));
+    }*/
+
+    void execute(CPU &cpu) override {
+        int regIdx = op.getRegIndex(); //which register to decrement
+        signed char a = cpu.getRegister(regIdx); //read the current value
+        int result = (int)a - 1; //do the math as int, so the true result is visible before clamping
+
+        cpu.setRegister(regIdx, (signed char)result); //clamp back to signed char and store
+        cpu.getFlags().updateFromResult(result); //update Overflow/Underflow/Zero from the true result
+        cpu.getFlags().checkNupdateCarrySub(a, 1); //update Carry, treating this as "subtract 1"
     }
 };
 
+//Class: PUSHInstruction
+//Purpose: PUSHInstruction is an instruction class that pushes the value stored in a specified register onto the CPU stack.
+//Writer: Janine Bong Yu Ming
 class PUSHInstruction : public OneOperandInstruction {
 public:
+    // Constructor passes the line number and operand to the parent class.
     PUSHInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
     
+    // Execute the PUSH instruction.
     void execute(CPU &cpu) override {
+        // Get the value from the specified register and push it onto the stack.
         cpu.pushValue(cpu.getRegister(op.getRegIndex()));
     }
 };
 
+//Class: POPInstruction
+//Purpose: POPInstruction is an instruction class that removes the top value from the CPU stack and stores it into a specified register.
+//Writer: Janine Bong Yu Ming
 class POPInstruction : public OneOperandInstruction {
 public:
+    // Constructor passes the line number and operand to the parent class.
     POPInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
     
+    // Execute the POP instruction.
     void execute(CPU &cpu) override {
-        cpu.setRegister(op.getRegIndex(), cpu.popValue());
+        // Store the popped stack value into the destination register.
+        cpu.setRegister(
+            op.getRegIndex(), 
+            cpu.popValue()
+    );
     }
 };
 
 //Class: IOInstruction
-//Purpose: IOInstruction is a base instruction class for input and output operations that require one operand.
+//Purpose: IOInstruction is a abstract base instruction class for input and output operations that require one operand.
 //Writer: Janine Bong Yu Ming
 class IOInstruction : public OneOperandInstruction {
 public:
-    // pass parameter to base class constructor (the one operand instruction)
+    // Constructor: Passes the line number and operand to the parent class constructor.
     IOInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
-    //destructor clean up
+
+    //destructor
     virtual ~IOInstruction() {}
 };
 
@@ -927,18 +1019,21 @@ public:
 //Writer: Janine Bong Yu Ming
 class INPUTInstruction : public IOInstruction {
 public:
-    INPUTInstruction(int line, Operand o) : IOInstruction(line, o) {}
-    // Execute method reads an integer from the user, validates it, and stores it in the specified register.
+
+    // Constructor: Passes the line number and operand to IOInstruction.
+    INPUTInstruction(int line, Operand o) 
+        : IOInstruction(line, o) {}
+    // Execute the INPUT instruction
     void execute(CPU &cpu) override {
-        int inputVal;
-        cout << "? ";
-        cin >> inputVal;  // Read input 
+        int inputVal; // Variable to temporarily store the user's input
+        cout << "? "; // Display input prompt
+        cin >> inputVal;  // Read value entered by user
         
-        // check for non-numeric input
+        // check for non-numeric input(invalid input)
         if (cin.fail()) {
-            cin.clear();   //reset the fail state
-            cin.ignore(1000, '\n'); //discard invalid input
-            throw InvalidInputException("non-numeric input");
+            cin.clear();   // Clear the error state of cin
+            cin.ignore(1000, '\n'); // Remove the invalid characters from the input buffer
+            throw InvalidInputException("non-numeric input"); // Throw an exception to indicate invalid input
         }
         
         // write the input value to the specified register
@@ -954,10 +1049,14 @@ public:
 //Writer: Janine Bong Yu Ming
 class DISPLAYInstruction : public IOInstruction {
 public:
+
+    //Constructor: Passes the line number and operand to the parent class constructor.
     DISPLAYInstruction(int line, Operand o) : IOInstruction(line, o) {}
     
+    // Execute the DISPLAY instruction
     void execute(CPU &cpu) override {
-        //convert the signed char to int for proper display
+        // Get the value stored in the specified register and convert signed char to int before printing
+        // This prevents the value from being displayed as an ASCII character
         cout << static_cast<int>(cpu.getRegister(op.getRegIndex())) << endl;
     }
 };
@@ -1021,16 +1120,24 @@ public:
     ADDInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
     void execute(CPU &cpu){
         int dest = op1.getRegIndex();
-        int result; // use int to detect overflow before casting
+        signed char a = cpu.getRegister(dest); //ADDED
+        signed char b; //ADDED
+        
+        // REMOVED int result; // use int to detect overflow before casting
         if (op2.getType() == Immediate){
-            result = cpu.getRegister(dest) + op2.getValue();
+            // REMOVED result = cpu.getRegister(dest) + op2.getValue();
+            b = (signed char)op2.getValue(); //ADDED
         }
         else if (op2.getType() == Register){
-            result = cpu.getRegister(dest) + cpu.getRegister(op2.getRegIndex());
+            //REMOVED result = cpu.getRegister(dest) + cpu.getRegister(op2.getRegIndex());
+            b = cpu.getRegister(op2.getRegIndex()); //ADDED
         }
         else{ throw InvalidOperandLogicException("ADD"); }
+        int result = (int)a + (int)b; //ADDED
         cpu.setRegister(dest, (signed char)result); // cast back to signed char
         cpu.getFlags().updateFromResult(result);// update the flaggs
+        cpu.getFlags().checkNupdateCarryAdd(a,b); //ADDED
+
     }
 };
 
@@ -1042,16 +1149,24 @@ public:
     SUBInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
     void execute(CPU &cpu){
         int dest = op1.getRegIndex();
-        int result;
+        signed char a = cpu.getRegister(dest); //ADDED
+        signed char b; //ADDED
+
+        // REMOVED int result; // use int to detect overflow before casting
         if (op2.getType() == Immediate){
-            result = cpu.getRegister(dest) - op2.getValue();
+            // REMOVED result = cpu.getRegister(dest) - op2.getValue();
+            b = (signed char)op2.getValue(); //ADDED
         }
         else if (op2.getType() == Register){
-            result = cpu.getRegister(dest) - cpu.getRegister(op2.getRegIndex());
+            //REMOVED result = cpu.getRegister(dest) - cpu.getRegister(op2.getRegIndex());
+            b = cpu.getRegister(op2.getRegIndex()); //ADDED
         }
         else{ throw InvalidOperandLogicException("SUB"); }
+        int result = (int)a - (int)b; //ADDED
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result); // update the flags
+        cpu.getFlags().checkNupdateCarrySub(a,b); //ADDED
+
     }
 };
 
@@ -1063,16 +1178,25 @@ public:
     MULInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
     void execute(CPU &cpu){
         int dest = op1.getRegIndex();
-        int result;
+        signed char a = cpu.getRegister(dest); //ADDED
+        signed char b; //ADDED
+        // REMOVED int result; // use int to detect overflow before casting
         if (op2.getType() == Immediate){
-            result = cpu.getRegister(dest) * op2.getValue();
+            //REMOVED result = cpu.getRegister(dest) * op2.getValue();
+            b = (signed char)op2.getValue(); //ADDED
+
         }
         else if (op2.getType() == Register){
-            result = cpu.getRegister(dest) * cpu.getRegister(op2.getRegIndex());
+           //REMOVED result = cpu.getRegister(dest) * cpu.getRegister(op2.getRegIndex());
+            b = cpu.getRegister(op2.getRegIndex());
+
         }
         else{ throw InvalidOperandLogicException("MUL"); }
+        int result = (int)a * (int)b;//ADDED
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result); // update the flags
+        cpu.getFlags().checkNupdateCarryMul(a,b); //ADDED
+
     }
 };
 
@@ -1084,18 +1208,26 @@ public:
     DIVInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
     void execute(CPU &cpu){
         int dest = op1.getRegIndex();
-        int result;
+        signed char a = cpu.getRegister(dest); //ADDED
+        signed char b; //ADDED
+        //REMOVED int result;
         if (op2.getType() == Immediate){
             if (op2.getValue() == 0){ throw DivideByZeroException(); return; } //  check if got divide by zero 
-            result = cpu.getRegister(dest) / op2.getValue();
+            //REMOVED result = cpu.getRegister(dest) / op2.getValue();
+            b = (signed char)op2.getValue(); //ADDED
         }
         else if (op2.getType() == Register){
-            if (cpu.getRegister(op2.getRegIndex()) == 0){ throw DivideByZeroException(); return; }
-            result = cpu.getRegister(dest) / cpu.getRegister(op2.getRegIndex());
+            b = cpu.getRegister(op2.getRegIndex()); //ADDED
+            //REMOVED if (cpu.getRegister(op2.getRegIndex()) == 0){ throw DivideByZeroException(); return; }
+            if (b == 0){ DivideByZeroException err; return; } // ADDED
+            //REMOVED result = cpu.getRegister(dest) / cpu.getRegister(op2.getRegIndex());
         }
         else{ throw InvalidOperandLogicException("DIV"); return; }
+        int result = (int)a / (int)b; // ADDED
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result);
+        cpu.getFlags().updateCarryForDiv(a, b);  
+
     }
 };
 
