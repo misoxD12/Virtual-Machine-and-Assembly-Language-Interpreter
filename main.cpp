@@ -838,8 +838,7 @@ protected:
     // Stores the operand used by the instruction.
     Operand op;
 public:
-    // Constructor
-    // Receives the line number of the instruction and its operand.
+    // Constructor: Receives the line number of the instruction and its operand.
     OneOperandInstruction(int line, Operand o) 
         : Instructions(line) { // Call parent class constructor
 
@@ -852,65 +851,103 @@ public:
     virtual ~OneOperandInstruction() {}
 };
 
-
+//Class: RESETInstruction
+//Purpose: RESETInstruction is an instruction class that resets a specified CPU flag (such as Zero, Negative, Carry, or Overflow) back to false.
+//Writer: Janine Bong Yu Ming
 class RESETInstruction : public Instructions {
 private:
-    string targetFlag;
+    string targetFlag; // Stores the name of the flag that should be reset.(Z,N,C,V)
 public:
+    // Constructor: Receives the instruction line number and the flag name to reset.
     RESETInstruction(int line, string flag) : Instructions(line), targetFlag(flag) {}
     
+    // Execute the RESET instruction
     void execute(CPU &cpu) override {
-        // Your FlagRegister class already has this perfect helper function!
+        // Reset the specified CPU flag to false.
         cpu.getFlags().resetByName(targetFlag);
     }
 };
 
-
+//Class: INCInstruction
+//Purpose: INCInstruction is an instruction class that increases the value stored in a specified register by 1 and updates the CPU flags accordingly.
+//Writer: Janine Bong Yu Ming
 class INCInstruction : public OneOperandInstruction {
 public:
+    // Constructor: Passes the line number and operand to the parent class constructor.
     INCInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
     
-    void execute(CPU &cpu) override {
-        int val = cpu.getRegister(op.getRegIndex());
-        val++;
-        
+    void execute(CPU &cpu) override { // Execute the INC instruction
+        int val = cpu.getRegister(op.getRegIndex()); // Get the current value stored in the target register
+        val++;         
+
+        // Update CPU flags based on the new value
         cpu.getFlags().updateFromResult(val);
-        cpu.setRegister(op.getRegIndex(), static_cast<signed char>(val));
+
+        // Store the updated value back into the register
+        // static_cast converts int back to signed char
+        cpu.setRegister(
+            op.getRegIndex(), 
+            static_cast<signed char>(val)
+        );
     }
 };
 
+//Class: DECInstruction
+//Purpose: DECInstruction is an instruction class that decreases the value stored in a specified register by 1 and updates the CPU flags accordingly.
+//Writer: Janine Bong Yu Ming
 class DECInstruction : public OneOperandInstruction {
 public:
+    // Constructor passes the line number and operand to the parent class.
     DECInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
     
+    // Execute the DEC instruction.
     void execute(CPU &cpu) override {
+        // Get the current value from the target register.
         int val = cpu.getRegister(op.getRegIndex());
         val--;
         
+        // Update CPU flags based on the new value.
         cpu.getFlags().updateFromResult(val);
+        // Store the updated value back into the register.
         cpu.setRegister(op.getRegIndex(), static_cast<signed char>(val));
     }
 };
 
+//Class: PUSHInstruction
+//Purpose: PUSHInstruction is an instruction class that pushes the value stored in a specified register onto the CPU stack.
+//Writer: Janine Bong Yu Ming
 class PUSHInstruction : public OneOperandInstruction {
 public:
+    // Constructor passes the line number and operand to the parent class.
     PUSHInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
     
+    // Execute the PUSH instruction.
     void execute(CPU &cpu) override {
+        // Get the value from the specified register and push it onto the stack.
         cpu.pushValue(cpu.getRegister(op.getRegIndex()));
     }
 };
 
+//Class: POPInstruction
+//Purpose: POPInstruction is an instruction class that removes the top value from the CPU stack and stores it into a specified register.
+//Writer: Janine Bong Yu Ming
 class POPInstruction : public OneOperandInstruction {
 public:
+    // Constructor passes the line number and operand to the parent class.
     POPInstruction(int line, Operand o) : OneOperandInstruction(line, o) {}
     
+    // Execute the POP instruction.
     void execute(CPU &cpu) override {
-        cpu.setRegister(op.getRegIndex(), cpu.popValue());
+        // Store the popped stack value into the destination register.
+        cpu.setRegister(
+            op.getRegIndex(), 
+            cpu.popValue()
+    );
     }
 };
+
 //Class: IOInstruction
-//Purpose: IOInstruction is a base instruction class for input and output operations that require one operand.
+//Purpose: IOInstruction is a abstract base instruction class for input and output operations that require one operand.
 //Writer: Janine Bong Yu Ming
 class IOInstruction : public OneOperandInstruction {
 public:
@@ -920,6 +957,7 @@ public:
     //Virtual destructor: Ensures proper cleanup when derived classes are deleted.
     virtual ~IOInstruction() {}
 };
+
 //Class: INPUTInstruction
 //Purpose: INPUTInstruction is an instruction class that reads user input, validates it, stores the value into a register, and updates CPU flags.
 //Writer: Janine Bong Yu Ming
