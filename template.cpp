@@ -927,6 +927,7 @@ public:
         ); 
     }*/
     void execute(CPU &cpu) override {
+        if (op.getType() != Register){throw InvalidOperandLogicException("INC - Destination must be a register");}
         int regIdx = op.getRegIndex(); //which register to increment
         signed char a = cpu.getRegister(regIdx); //read the current value
         int result = (int)a + 1; //do the math as int, so the true result is visible before clamping
@@ -959,6 +960,7 @@ public:
     }*/
 
     void execute(CPU &cpu) override {
+        if (op.getType() != Register){throw InvalidOperandLogicException("DEC - Destination must be a register");}
         int regIdx = op.getRegIndex(); //which register to decrement
         signed char a = cpu.getRegister(regIdx); //read the current value
         int result = (int)a - 1; //do the math as int, so the true result is visible before clamping
@@ -979,6 +981,7 @@ public:
     
     // Execute the PUSH instruction.
     void execute(CPU &cpu) override {
+        if (op.getType() != Register){throw InvalidOperandLogicException("PUSH - Destination must be a register");}
         // Get the value from the specified register and push it onto the stack.
         cpu.pushValue(cpu.getRegister(op.getRegIndex()));
     }
@@ -994,6 +997,7 @@ public:
     
     // Execute the POP instruction.
     void execute(CPU &cpu) override {
+        if (op.getType() != Register){throw InvalidOperandLogicException("POP - Destination must be a register");}
         // Store the popped stack value into the destination register.
         cpu.setRegister(
             op.getRegIndex(), 
@@ -1025,6 +1029,7 @@ public:
         : IOInstruction(line, o) {}
     // Execute the INPUT instruction
     void execute(CPU &cpu) override {
+        if (op.getType() != Register){throw InvalidOperandLogicException("INPUT - Destination must be a register");}
         int inputVal; // Variable to temporarily store the user's input
         cout << "? "; // Display input prompt
         cin >> inputVal;  // Read value entered by user
@@ -1055,6 +1060,7 @@ public:
     
     // Execute the DISPLAY instruction
     void execute(CPU &cpu) override {
+        if (op.getType() != Register){throw InvalidOperandLogicException("DISPLAY - Destination must be a register");}
         // Get the value stored in the specified register and convert signed char to int before printing
         // This prevents the value from being displayed as an ASCII character
         cout << static_cast<int>(cpu.getRegister(op.getRegIndex())) << endl;
@@ -1091,6 +1097,7 @@ class MOVInstruction : public TwoOperandInstruction {
 public:
     MOVInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
     void execute(CPU &cpu){
+        if (op1.getType() != Register){throw InvalidOperandLogicException("MOV - Destination must be a register");}
         int dest = op1.getRegIndex(); // get destination register index
         if (op2.getType() == Immediate){
             // MOV R0, 10 -use for the immediate value directly
@@ -1119,6 +1126,7 @@ class ADDInstruction : public ArithmeticInstruction {
 public:
     ADDInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
     void execute(CPU &cpu){
+        if (op1.getType() != Register){throw InvalidOperandLogicException("ADD - Destination must be a register");}
         int dest = op1.getRegIndex();
         signed char a = cpu.getRegister(dest); //ADDED
         signed char b; //ADDED
@@ -1148,6 +1156,7 @@ class SUBInstruction : public ArithmeticInstruction {
 public:
     SUBInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
     void execute(CPU &cpu){
+        if (op1.getType() != Register){throw InvalidOperandLogicException("SUB - Destination must be a register");}
         int dest = op1.getRegIndex();
         signed char a = cpu.getRegister(dest); //ADDED
         signed char b; //ADDED
@@ -1177,6 +1186,7 @@ class MULInstruction : public ArithmeticInstruction {
 public:
     MULInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
     void execute(CPU &cpu){
+        if (op1.getType() != Register){throw InvalidOperandLogicException("MUL - Destination must be a register");}
         int dest = op1.getRegIndex();
         signed char a = cpu.getRegister(dest); //ADDED
         signed char b; //ADDED
@@ -1207,6 +1217,7 @@ class DIVInstruction : public ArithmeticInstruction {
 public:
     DIVInstruction(int line, Operand o1, Operand o2) : ArithmeticInstruction(line, o1, o2){}
     void execute(CPU &cpu){
+        if (op1.getType() != Register){throw InvalidOperandLogicException("DIV - Destination must be a register");}
         int dest = op1.getRegIndex();
         signed char a = cpu.getRegister(dest); //ADDED
         signed char b; //ADDED
@@ -1238,6 +1249,7 @@ class LOADInstruction : public TwoOperandInstruction {
 public:
     LOADInstruction(int line, Operand o1, Operand o2) : TwoOperandInstruction(line, o1, o2){}
     void execute(CPU &cpu){
+        if (op1.getType() != Register){throw InvalidOperandLogicException("LOAD - Destination must be a register");}
         int dest = op1.getRegIndex();
         if (op2.getType() == indirectMem){
             // LOAD R1, [R2] - to get the memery address from Register 2 
@@ -1313,6 +1325,7 @@ public:
     }
 
     void execute(CPU &cpu) override {
+        if (op1.getType() != Register){throw InvalidOperandLogicException("ROL - Destination must be a register");}
         unsigned char val = convertUnsigned(cpu); //get the register's value as unsigned
         int shiftCount   = count % 8; //reduce the count to the actual amount 
         val = (val << shiftCount) | (val >> (8 - shiftCount)); //shift left, then OR in the bits that fell off
@@ -1329,6 +1342,7 @@ public:
     }
 
     void execute(CPU &cpu) override {
+        if (op1.getType() != Register){throw InvalidOperandLogicException("ROR - Destination must be a register");}
         unsigned char val = convertUnsigned(cpu);
         int shiftCount = count % 8;
         val = (val >> shiftCount) | (val << (8 - shiftCount)); //Shift right, then OR in the bits that fell off
@@ -1345,6 +1359,7 @@ public:
     }
 
     void execute(CPU &cpu) override {
+        if (op1.getType() != Register){throw InvalidOperandLogicException("SHL - Destination must be a register");}
         unsigned char val = convertUnsigned(cpu);
         if (count >= 8) {  //if shift count more than 8 then zero everything
             val = 0; 
@@ -1364,6 +1379,7 @@ public:
     }
 
     void execute(CPU &cpu) override {
+        if (op1.getType() != Register){throw InvalidOperandLogicException("SHR - Destination must be a register");}
         unsigned char val = convertUnsigned(cpu);
         if (count >= 8) {
             val = 0;
