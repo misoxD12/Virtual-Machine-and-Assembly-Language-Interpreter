@@ -1102,20 +1102,20 @@ public:
     void execute(CPU &cpu){
         if (op1.getType() != Register){throw InvalidOperandLogicException("ADD - Destination must be a register");}
         int dest = op1.getRegIndex();
-        signed char a = cpu.getRegister(dest); 
-        signed char b; 
+        signed char a = cpu.getRegister(dest); // current value in destination
+        signed char b; // value to add
         
         if (op2.getType() == Immediate){
-            b = (signed char)op2.getValue(); 
+            b = (signed char)op2.getValue(); // immediate value
         }
         else if (op2.getType() == Register){
-            b = cpu.getRegister(op2.getRegIndex()); 
+            b = cpu.getRegister(op2.getRegIndex()); // value from source register
         }
         else{ throw InvalidOperandLogicException("ADD"); }
-        int result = (int)a + (int)b; 
+        int result = (int)a + (int)b; // calc as int to detect overflow
         cpu.setRegister(dest, (signed char)result); // cast back to signed char
         cpu.getFlags().updateFromResult(result);// update the flaggs
-        cpu.getFlags().checkNupdateCarryAdd(a,b); 
+        cpu.getFlags().checkNupdateCarryAdd(a,b); // update CF 
 
     }
 };
@@ -1129,17 +1129,17 @@ public:
     void execute(CPU &cpu){
         if (op1.getType() != Register){throw InvalidOperandLogicException("SUB - Destination must be a register");}
         int dest = op1.getRegIndex();
-        signed char a = cpu.getRegister(dest); 
-        signed char b; 
+        signed char a = cpu.getRegister(dest);  // current value in destination
+        signed char b; // value to subtract
 
         if (op2.getType() == Immediate){
-            b = (signed char)op2.getValue(); 
+            b = (signed char)op2.getValue(); // immediate value
         }
         else if (op2.getType() == Register){
-            b = cpu.getRegister(op2.getRegIndex()); 
+            b = cpu.getRegister(op2.getRegIndex()); // value from source register
         }
         else{ throw InvalidOperandLogicException("SUB"); }
-        int result = (int)a - (int)b; 
+        int result = (int)a - (int)b; // calc as int to detect underflow
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result); // update the flags
         cpu.getFlags().checkNupdateCarrySub(a,b); 
@@ -1156,18 +1156,18 @@ public:
     void execute(CPU &cpu){
         if (op1.getType() != Register){throw InvalidOperandLogicException("MUL - Destination must be a register");}
         int dest = op1.getRegIndex();
-        signed char a = cpu.getRegister(dest); 
-        signed char b; 
+        signed char a = cpu.getRegister(dest);// current value in destination
+        signed char b; // value to multiply 
         if (op2.getType() == Immediate){
-            b = (signed char)op2.getValue(); 
+            b = (signed char)op2.getValue(); // immediate value
 
         }
         else if (op2.getType() == Register){
-            b = cpu.getRegister(op2.getRegIndex());
+            b = cpu.getRegister(op2.getRegIndex());// value from source register
 
         }
         else{ throw InvalidOperandLogicException("MUL"); }
-        int result = (int)a * (int)b;
+        int result = (int)a * (int)b;// calc as int to detect overflow
         cpu.setRegister(dest, (signed char)result);
         cpu.getFlags().updateFromResult(result); // update the flags
         cpu.getFlags().checkNupdateCarryMul(a,b); 
@@ -1184,20 +1184,20 @@ public:
     void execute(CPU &cpu){
         if (op1.getType() != Register){throw InvalidOperandLogicException("DIV - Destination must be a register");}
         int dest = op1.getRegIndex();
-        signed char a = cpu.getRegister(dest); 
-        signed char b; 
+        signed char a = cpu.getRegister(dest);  // current value in destination
+        signed char b; // value to divide by
         if (op2.getType() == Immediate){
             if (op2.getValue() == 0){ throw DivideByZeroException(); return; } //  check if got divide by zero 
             b = (signed char)op2.getValue(); 
         }
         else if (op2.getType() == Register){
             b = cpu.getRegister(op2.getRegIndex()); 
-            if (b == 0){ DivideByZeroException err; return; } 
+            if (b == 0){ DivideByZeroException err; return; } // check if got divide by zero 
         }
         else{ throw InvalidOperandLogicException("DIV"); return; }
-        int result = (int)a / (int)b; 
+        int result = (int)a / (int)b; // calc as int to detect overflow
         cpu.setRegister(dest, (signed char)result);
-        cpu.getFlags().updateFromResult(result);
+        cpu.getFlags().updateFromResult(result); // update the flags
         cpu.getFlags().updateCarryForDiv(a, b);  
 
     }
